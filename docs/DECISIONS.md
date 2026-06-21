@@ -16,7 +16,7 @@ MVP accepts pasted plain text only.
 
 ### 004 — MVP Output
 
-MVP produces a structured QA draft: requirement analysis, risk analysis, traceable test design, automation plan or skeleton, and QA review.
+MVP produces a structured QA draft: requirement analysis, risk analysis, traceable test design, automation recommendations without generated code, and QA review.
 
 ### 005 — Safety Boundary
 
@@ -24,7 +24,7 @@ MVP performs no code execution, browser access, external API calls, repository a
 
 ### 006 — Architecture
 
-The system uses pre-model and post-generation deterministic safety boundaries around a sequential multi-agent workflow.
+The system uses pre-model and post-generation deterministic safety boundaries around a sequential three-agent workflow: Requirement Agent, Risk & Test Design Agent, and QA Review Agent.
 
 ### 007 — Technology Stack
 
@@ -34,7 +34,7 @@ Should-have: local FastAPI endpoint.
 
 Optional: local web page and Cloud Run.
 
-Excluded from v1.0: MCP, external integrations, persistence, authentication, and real test execution.
+Excluded from v1.0: generated automation code, a separate Automation Agent, MCP, external integrations, persistence, authentication, and real test execution.
 
 ### 008 — Language Scope
 
@@ -43,6 +43,14 @@ MVP supports English requirements. Unsupported and substantial mixed-language in
 ### 009 — Canonical Output
 
 Canonical output is versioned JSON. Markdown is produced deterministically from JSON without another LLM call.
+
+### 010 — Narrow Three-Agent MVP
+
+The mandatory MVP contains three tool-less agents and three release scenarios: complete requirement, incomplete requirement, and adversarial injection. Automation code, Cloud Run, and the expanded evaluation suite are stretch work after the local vertical slice passes.
+
+### 011 — Minimal Provenance and Enrichment
+
+The provenance origin enum includes `EXTRACTED`, `INFERRED`, `PROPOSED`, `ASSUMPTION`, and `MISSING_INFORMATION`. The deterministic layer computes expected-result status, conditional flags, complete assumption references, and the constant human-review flag from validated references.
 
 ## Working Environment Decision
 

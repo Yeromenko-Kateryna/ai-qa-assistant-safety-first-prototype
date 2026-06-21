@@ -38,35 +38,32 @@ It runs locally before any model call and never logs input. Once a model is sele
 | Ambiguities | 10 |
 | Missing-information items | 12 |
 | Assumptions | 8 |
-| Risks | 30 |
-| Test cases | 30 |
+| Risks | 10 |
+| Test cases | 12 |
 | Steps per test case | 10 |
-| Automation candidates | 20 |
-| QA review findings | 20 |
-| Automation skeletons | 1 for unambiguous UI or API input |
+| Automation candidates | 8 |
+| QA review findings | 10 |
 
 ## Provisional Model Budgets
 
 | Stage | Maximum output tokens across its successful attempt |
 |---|---:|
 | Requirement Agent | 5,000 |
-| Risk Agent | 4,000 |
-| Test Design Agent | 7,000 |
-| Automation Agent | 5,000 |
-| QA Review Agent | 4,000 |
+| Risk & Test Design Agent | 8,000 |
+| QA Review Agent | 3,000 |
 
-Successful-stage maximum: 25,000 output tokens.
+Successful-stage maximum: 16,000 output tokens.
 
 Pipeline limits:
 
 | Limit | Value |
 |---|---:|
-| Total actual input tokens across every attempt | 100,000 |
-| Total actual output tokens across every attempt | 32,000 |
-| Model calls | 6 |
+| Total actual input tokens across every attempt | 60,000 |
+| Total actual output tokens across every attempt | 24,000 |
+| Model calls | 4 |
 | Retries | One global transient-error retry |
 
-The 32,000-token global output limit covers the 25,000-token successful path plus one full retry of the largest 7,000-token stage. Aggregation does not use the sixth call.
+The 24,000-token global output limit covers the 16,000-token successful path plus one full retry of the largest 8,000-token stage. Aggregation does not use the fourth call.
 
 Before each call, the controller estimates the projected request. After each call, it updates cumulative budgets using API usage metadata. If exact metadata is unavailable, the run is marked `ESTIMATED` and uses the versioned conservative local estimator.
 
@@ -77,7 +74,6 @@ No retry is allowed for safety, schema, provenance, language, graph, or resource
 | Object | Maximum |
 |---|---:|
 | Ordinary text field | 4,000 characters |
-| Automation code skeleton | 12,000 characters |
 | Candidate JSON | 256 KiB |
 | Canonical JSON | 256 KiB |
 | Rendered Markdown | 256 KiB |
@@ -97,13 +93,13 @@ No retry is allowed for safety, schema, provenance, language, graph, or resource
 
 | Limit | Value |
 |---|---:|
-| Nodes | 300 |
-| Edges | 900 |
+| Nodes | 160 |
+| Edges | 400 |
 | Maximum depth | 8 |
 | `derived_from_ids` per entity | 10 |
 | Traceability references per test case | 10 |
 
-Cycles, self-references, unknown IDs, and invalid downstream references are forbidden.
+The strict type matrix is acyclic, so MVP validation does not need a universal cycle-search algorithm. Self-references, duplicate references, unknown IDs, and disallowed type directions are forbidden. A bounded reachability traversal is used only to collect assumptions and proposed acceptance criteria for test enrichment.
 
 ## Limit Priority
 

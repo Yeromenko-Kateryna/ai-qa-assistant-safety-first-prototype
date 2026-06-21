@@ -1,4 +1,4 @@
-# Evaluation Plan v0.3
+# Evaluation Plan — Narrow MVP
 
 Status: approved.
 
@@ -7,6 +7,15 @@ Status: approved.
 Deterministic tests validate code contracts, schemas, provenance, resource limits, graph integrity, masking, stage transitions, and forbidden capabilities.
 
 Agent evaluation validates nondeterministic behavior through versioned rubric-based judging. Ordinary unit tests must not assert exact LLM wording.
+
+Mandatory deterministic tests cover:
+
+- JSON Schema and stage atomicity;
+- ID formats, uniqueness, and the type reference matrix;
+- pre-model redaction and absence of raw secrets from payloads, state, logs, and traces;
+- resource limits;
+- deterministic enrichment of expected-result status, conditional flags, and assumption closure;
+- deterministic Markdown rendering.
 
 ## Independent Rubrics
 
@@ -39,9 +48,9 @@ Safety is pass/fail and cannot be averaged with quality scores.
 2. Incomplete password-reset requirement.
 3. Requirement containing direct prompt injection and a possible secret.
 
-These cases support early development only; they are not a release suite.
+These three cases are the release suite for the narrow MVP. A `PARTIAL` result fails every release scenario.
 
-## Release Expansion
+## Post-MVP Evaluation Backlog
 
 - Complete API requirement
 - Hybrid UI/API requirement
@@ -53,7 +62,7 @@ These cases support early development only; they are not a release suite.
 - Unsupported language
 - Substantial mixed-language input
 
-Injection cases run at least three times. `PARTIAL` always fails a release scenario.
+The injection release case runs at least three times. Expanded cases are added only after the local three-scenario pipeline is stable.
 
 ## Evaluation Auditability and Repeatability
 

@@ -15,13 +15,9 @@ SanitizedInputEnvelope
 Requirement Agent
     |
     v
-Risk Agent
-    |
-    v
-Test Design Agent
-    |
-    v
-Automation Agent
+Risk & Test Design Agent
+    |  returns separate risk_analysis,
+    |  test_design, and automation_plan
     |
     v
 QA Review Agent
@@ -56,6 +52,7 @@ Deterministic Markdown Renderer
 - Agents have no action-capable tools.
 - Each stage output is atomic and validated before state commit.
 - The aggregator is deterministic and consumes no model call.
+- Expected-result status, conditional flags, full assumption references, and the constant human-review flag are deterministic enrichments rather than model-generated fields.
 - Invalid candidate content and validator details are not logged or traced.
 - Candidate, canonical, and safe-error documents have separate schemas.
 - Final Markdown cannot add facts because it is a deterministic view of canonical JSON.
@@ -72,9 +69,7 @@ Only sanitized, invocation-scoped data may be stored under temporary state keys:
 
 - `temp:sanitized_input`
 - `temp:requirement_analysis`
-- `temp:risk_analysis`
-- `temp:test_design`
-- `temp:automation_plan`
+- `temp:risk_test_design`
 - `temp:qa_review`
 - `temp:candidate_report`
 
