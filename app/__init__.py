@@ -12,6 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .agent import app
-
 __all__ = ["app"]
+
+
+def __getattr__(name: str):
+    if name == "app":
+        from .agent import app as agent_app
+
+        globals()["app"] = agent_app
+        return agent_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals().keys()) | set(__all__))
