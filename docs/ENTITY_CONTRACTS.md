@@ -22,7 +22,7 @@ Fields:
 - `derived_from_ids`;
 - `rationale`, null for extracted content and 1–1000 characters otherwise.
 
-Extracted content references sanitized segments. `VERBATIM` is an exact non-empty substring of one sanitized segment. Non-extracted content uses `NONE`, has no source segments, and references at least one allowed dependency.
+Extracted content references sanitized segments. `VERBATIM` is an exact non-empty substring of one sanitized segment. For `origin = EXTRACTED`, `derived_from_ids` must be empty. Entity-specific domain relationships are stored in dedicated relationship fields and do not change provenance origin. Non-extracted content uses `NONE`, has no source segments, and references at least one allowed dependency.
 
 These are canonical provenance rules. Agent draft schemas omit provenance fields whose values are fixed by entity type or computed from validated references; the deterministic enrichment layer adds them before canonical validation.
 

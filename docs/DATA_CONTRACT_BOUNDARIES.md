@@ -33,7 +33,7 @@ Status: trust boundaries, minimal provenance, and narrow-MVP entity contracts ap
 
 Rules:
 
-- `EXTRACTED` uses `VERBATIM`, `PARAPHRASE`, or `SUMMARY` and references at least one sanitized source segment.
+- `EXTRACTED` uses `VERBATIM`, `PARAPHRASE`, or `SUMMARY` and references at least one sanitized source segment. For `origin = EXTRACTED`, `derived_from_ids` must be empty. Entity-specific domain relationships are stored in dedicated relationship fields and do not change provenance origin.
 - `VERBATIM` means an exact non-empty substring of one sanitized segment, never raw input.
 - `INFERRED`, `PROPOSED`, `ASSUMPTION`, and `MISSING_INFORMATION` use `NONE`, have no source-segment references, reference at least one allowed dependency, and include a rationale.
 - `MISSING_INFORMATION.source_segment_ids` may be empty.
