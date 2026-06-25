@@ -287,3 +287,324 @@ def test_pre_request_prompt_failure_does_not_attempt_request(monkeypatch):
     assert "secret-api-key-value" not in serialized_summary
     assert "secret-model-name-value" not in serialized_summary
     assert "Simulated prompt building failure" not in serialized_summary
+
+
+def test_diag_excluded_empty_provider_response():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text="")
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_PROVIDER_EMPTY_DRAFT"
+    assert not summary.get("diagnostics_included", False)
+    # Ensure no other draft diagnostic fields are present
+    for key in [
+        "diagnostic_status", "failure_phase", "safe_error_code", "root_type",
+        "missing_top_level_keys", "invalid_field_paths", "safe_expected_type_names",
+        "provenance_rule_failed", "semantic_rule_failed", "payload_values_printed"
+    ]:
+        assert key not in summary
+
+
+def test_diag_excluded_timeout_provider_exception():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            raise TimeoutError("Timeout occurred")
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_PROVIDER_TIMEOUT"
+    assert not summary.get("diagnostics_included", False)
+    for key in [
+        "diagnostic_status", "failure_phase", "safe_error_code", "root_type",
+        "missing_top_level_keys", "invalid_field_paths", "safe_expected_type_names",
+        "provenance_rule_failed", "semantic_rule_failed", "payload_values_printed"
+    ]:
+        assert key not in summary
+
+
+def test_diag_excluded_missing_model_key_preflight():
+    fake_environ = {"GEMINI_API_KEY": "test-key"}
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import)
+    assert summary["error_code"] == "AGENT_PROVIDER_FAILED"
+    assert not summary.get("diagnostics_included", False)
+    for key in [
+        "diagnostic_status", "failure_phase", "safe_error_code", "root_type",
+        "missing_top_level_keys", "invalid_field_paths", "safe_expected_type_names",
+        "provenance_rule_failed", "semantic_rule_failed", "payload_values_printed"
+    ]:
+        assert key not in summary
+
+
+def test_diag_included_malformed_json():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text="not a json string")
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_NOT_JSON"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "PARSE"
+    assert summary.get("safe_error_code") == "AGENT_DRAFT_NOT_JSON"
+    assert summary.get("diagnostic_status") == "FAILED"
+
+
+def test_diag_included_root_not_object():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text="[1, 2, 3]")
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_ROOT_NOT_OBJECT"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "ROOT_TYPE"
+    assert summary.get("root_type") == "array"
+    assert summary.get("safe_error_code") == "AGENT_DRAFT_ROOT_NOT_OBJECT"
+
+
+def test_diag_included_missing_top_level_keys():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text="{}")
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_VALIDATION_FAILED"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "SCHEMA"
+    assert "summary" in summary.get("missing_top_level_keys", [])
+    assert "requirements" in summary.get("missing_top_level_keys", [])
+    assert summary.get("safe_error_code") == "AGENT_DRAFT_VALIDATION_FAILED"
+
+
+def test_diag_included_pydantic_schema_failure():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text='{"summary": "not an object", "requirements": []}')
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_VALIDATION_FAILED"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "SCHEMA"
+    assert "summary" in summary.get("invalid_field_paths", [])
+    assert summary.get("safe_error_code") == "AGENT_DRAFT_VALIDATION_FAILED"
+
+    # Ensure Pydantic's raw details do not leak in summary
+    serialized = str(summary)
+    assert "Input should be" not in serialized
+    assert "valid dictionary" not in serialized
+    assert "ctx" not in serialized
+    assert "url" not in serialized
+
+
+def test_diag_included_semantic_dependency_failure():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    fake_semantic_fail = """{
+      "summary": {
+        "text": "Indicator system.",
+        "provenance": {
+          "origin": "EXTRACTED",
+          "transformation": "SUMMARY",
+          "source_segment_ids": ["SEG-001"],
+          "derived_from_ids": [],
+          "rationale": null
+        }
+      },
+      "requirements": [
+        {
+          "id": "REQ-001",
+          "description": "The system shall display a system status indicator.",
+          "category": "FUNCTIONAL",
+          "provenance": {
+            "origin": "EXTRACTED",
+            "transformation": "VERBATIM",
+            "source_segment_ids": ["SEG-001"],
+            "derived_from_ids": [],
+            "rationale": null
+          }
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "description": "Validation check criterion.",
+          "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-999"],
+            "rationale": "Valid proposed rationale"
+          }
+        }
+      ],
+      "business_rules": [],
+      "ambiguities": [],
+      "missing_information": [],
+      "assumptions": []
+    }"""
+    response = StubResponse(text=fake_semantic_fail)
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_VALIDATION_FAILED"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "SEMANTIC"
+    assert summary.get("semantic_rule_failed") == "MISSING_DEPENDENCY_REFERENCE"
+
+    # Ensure no payload leaks (e.g. REQ-999 or description text)
+    serialized = str(summary)
+    assert "REQ-999" not in serialized
+    assert "Validation check criterion" not in serialized
+
+
+def test_diag_included_unsafe_key_precedence():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+    response = StubResponse(text='{"api_key": "SyntheticSecretValue123456"}')
+    class FakeClient:
+        def __init__(self, api_key):
+            pass
+        def generate_content(self, model_name, prompt):
+            return response
+    def fake_import():
+        return object()
+
+    summary = runner.execute_request(fake_environ, fake_import, FakeClient)
+    assert summary["error_code"] == "AGENT_DRAFT_VALIDATION_FAILED"
+    assert summary.get("diagnostics_included") is True
+    assert summary.get("failure_phase") == "UNSAFE"
+    assert summary.get("safe_error_code") == "AGENT_DRAFT_UNSAFE_CONTENT"
+    assert summary.get("payload_values_printed") is False
+
+    # Ensure other diagnostic metadata are omitted
+    for key in [
+        "diagnostic_status", "root_type", "missing_top_level_keys",
+        "invalid_field_paths", "safe_expected_type_names",
+        "provenance_rule_failed", "semantic_rule_failed"
+    ]:
+        assert key not in summary
+
+    # Ensure the secret values are not leaked
+    serialized = str(summary)
+    assert "SyntheticSecretValue123456" not in serialized
+    assert "api_key_present" in serialized  # Whitelisted key
+    assert "api_key" not in serialized.replace("api_key_present", "")
+
+
+def test_diag_safe_summary_formatting():
+    summary = {
+        "api_key_present": True,
+        "model_name_present": True,
+        "model_configured": True,
+        "sdk_readiness": True,
+        "request_attempted": True,
+        "request_count": 1,
+        "stage_status": "FAILED",
+        "error_code": "AGENT_DRAFT_VALIDATION_FAILED",
+        "committed_output_exists": False,
+        "requirement_count": 0,
+        "diagnostics_included": True,
+        "diagnostic_status": "FAILED",
+        "failure_phase": "SCHEMA",
+        "safe_error_code": "AGENT_DRAFT_VALIDATION_FAILED",
+        "root_type": "object",
+        "missing_top_level_keys": ["summary"],
+        "invalid_field_paths": ["requirements[0].id"],
+        "safe_expected_type_names": ["string"],
+        "provenance_rule_failed": None,
+        "semantic_rule_failed": None,
+        "payload_values_printed": False,
+        "leaked_key": "some_leak_value",  # Not in whitelist
+        "draft_text": "leak_draft_value",  # Prohibited key
+        "raw_response": "leak_raw_response_value",  # Prohibited key
+        "prompt": "leak_prompt_value",  # Prohibited key
+    }
+
+    # Call production helper
+    lines = runner.format_safe_diagnostic_lines(summary)
+    output = "\n".join(lines)
+
+    # Allowed diagnostic fields must appear
+    assert "Diagnostic status: FAILED" in output
+    assert "Failure phase: SCHEMA" in output
+    assert "Safe error code: AGENT_DRAFT_VALIDATION_FAILED" in output
+    assert "Root type: object" in output
+    assert "Missing top level keys: ['summary']" in output
+    assert "Invalid field paths: ['requirements[0].id']" in output
+    assert "Safe expected type names: ['string']" in output
+    assert "Payload values printed: False" in output
+
+    # Unknown/prohibited fields must not appear
+    assert "leaked_key" not in output
+    assert "some_leak_value" not in output
+    assert "draft_text" not in output
+    assert "leak_draft_value" not in output
+    assert "raw_response" not in output
+    assert "leak_raw_response_value" not in output
+    assert "prompt" not in output
+    assert "leak_prompt_value" not in output

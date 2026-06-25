@@ -1,6 +1,32 @@
 # No module-level imports of google.genai, google.auth, google.adk, or app.agent are allowed.
 # No module-level env var reads or executable statements.
 
+DIAGNOSTIC_PRINT_KEYS = (
+    "diagnostic_status",
+    "failure_phase",
+    "safe_error_code",
+    "root_type",
+    "missing_top_level_keys",
+    "invalid_field_paths",
+    "safe_expected_type_names",
+    "provenance_rule_failed",
+    "semantic_rule_failed",
+    "payload_values_printed",
+)
+
+
+def format_safe_diagnostic_lines(summary: dict) -> list[str]:
+    """Formats whitelisted diagnostic fields into safe output lines."""
+    lines = []
+    if not summary.get("diagnostics_included", False):
+        return lines
+    for key in DIAGNOSTIC_PRINT_KEYS:
+        if key in summary:
+            label = key.replace("_", " ").capitalize()
+            lines.append(f"{label}: {summary[key]}")
+    return lines
+
+
 def is_git_status_clean(status_stdout: str) -> bool:
     """Classifies if git status is clean.
 
@@ -53,6 +79,7 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
         "error_code": "AGENT_PROVIDER_FAILED",
         "committed_output_exists": False,
         "requirement_count": 0,
+        "diagnostics_included": False,
     }
 
     # 1. Check environment variables
@@ -92,10 +119,12 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
     class PromptProviderAdapter(RequirementAgentProvider):
         def __init__(self, prompt_provider):
             self.prompt_provider = prompt_provider
+            self.captured_draft = None
 
         def generate_draft(self, sanitized_input_env) -> str:
             prompt = requirement_agent_prompt.build_requirement_agent_prompt(sanitized_input_env)
-            return self.prompt_provider.generate_draft_from_prompt(prompt)
+            self.captured_draft = self.prompt_provider.generate_draft_from_prompt(prompt)
+            return self.captured_draft
 
     counting_client = None
     try:
@@ -123,6 +152,38 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
                 summary["requirement_count"] = len(result.committed_output.requirements)
         else:
             summary["committed_output_exists"] = False
+
+        # Add diagnostic integration only for draft-level failures
+        draft_level_failures = {
+            "AGENT_DRAFT_NOT_JSON",
+            "AGENT_DRAFT_ROOT_NOT_OBJECT",
+            "AGENT_DRAFT_VALIDATION_FAILED",
+            "AGENT_DRAFT_UNSAFE_CONTENT",
+        }
+        captured_draft = getattr(wrapper, "captured_draft", None)
+        if (
+            isinstance(captured_draft, str)
+            and len(captured_draft.strip()) > 0
+            and result.error_code in draft_level_failures
+        ):
+            from app.agent_draft_diagnostics import diagnose_agent_draft
+            diag = diagnose_agent_draft(captured_draft)
+            summary["diagnostics_included"] = True
+            if diag.failure_phase == "UNSAFE":
+                summary["failure_phase"] = "UNSAFE"
+                summary["safe_error_code"] = "AGENT_DRAFT_UNSAFE_CONTENT"
+                summary["payload_values_printed"] = False
+            else:
+                summary["diagnostic_status"] = diag.diagnostic_status
+                summary["failure_phase"] = diag.failure_phase
+                summary["safe_error_code"] = diag.safe_error_code
+                summary["root_type"] = diag.root_type
+                summary["missing_top_level_keys"] = diag.missing_top_level_keys
+                summary["invalid_field_paths"] = diag.invalid_field_paths
+                summary["safe_expected_type_names"] = diag.safe_expected_type_names
+                summary["provenance_rule_failed"] = diag.provenance_rule_failed
+                summary["semantic_rule_failed"] = diag.semantic_rule_failed
+                summary["payload_values_printed"] = diag.payload_values_printed
 
     except Exception:
         summary["stage_status"] = "FAILED"
@@ -178,6 +239,9 @@ def main():
     print(f"StageResult.error_code: {summary['error_code']}")
     print(f"committed_output exists: {summary['committed_output_exists']}")
     print(f"Requirement count: {summary['requirement_count']}")
+    print(f"Diagnostics included: {summary.get('diagnostics_included', False)}")
+    for line in format_safe_diagnostic_lines(summary):
+        print(line)
     print("-------------------------")
 
     try:
