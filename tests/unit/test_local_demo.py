@@ -52,3 +52,21 @@ def test_local_demo_import_isolation():
     assert "google.auth" not in sys.modules
     assert "google.adk" not in sys.modules
     assert "google.genai" not in sys.modules
+
+
+def test_run_local_demo_uses_output_safety(monkeypatch):
+    called_with = None
+
+    def mock_validate(markdown):
+        nonlocal called_with
+        called_with = markdown
+        return "MOCKED_SAFE_OUTPUT"
+
+    monkeypatch.setattr(
+        "app.local_demo.validate_markdown_output", mock_validate
+    )
+    result = run_local_demo("Valid raw text.")
+    assert called_with is not None
+    assert "Stage Status: SUCCESS" in called_with
+    assert "Valid raw text." in called_with
+    assert result == "MOCKED_SAFE_OUTPUT"
