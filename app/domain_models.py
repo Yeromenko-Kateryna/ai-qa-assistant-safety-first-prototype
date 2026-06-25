@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Generic, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -242,3 +242,50 @@ class RequirementAnalysis(BaseModel):
     assumptions: list[Assumption] = Field(
         default_factory=list, max_length=8
     )
+
+
+T = TypeVar("T")
+
+
+class StageStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
+class StageResult(BaseModel, Generic[T]):
+    model_config = ConfigDict(extra="forbid")
+
+    status: StageStatus
+    committed_output: T | None = None
+    error_code: str | None = None
+    safe_message: str | None = None
+
+    @model_validator(mode="after")
+    def validate_state_invariants(self) -> "StageResult[T]":
+        if self.status == StageStatus.SUCCESS:
+            if self.committed_output is None:
+                raise ValueError("SUCCESS status requires committed_output")
+            if self.error_code is not None:
+                raise ValueError("SUCCESS status must not have error_code")
+            if self.safe_message is not None:
+                raise ValueError("SUCCESS status must not have safe_message")
+        elif self.status == StageStatus.FAILED:
+            if self.committed_output is not None:
+                raise ValueError("FAILED status must not have committed_output")
+            if self.error_code is None:
+                raise ValueError("FAILED status requires error_code")
+            if self.safe_message is None:
+                raise ValueError("FAILED status requires safe_message")
+        elif self.status == StageStatus.NOT_STARTED:
+            if self.committed_output is not None:
+                raise ValueError("NOT_STARTED status must not have committed_output")
+            if self.error_code is not None:
+                raise ValueError("NOT_STARTED status must not have error_code")
+            if self.safe_message is not None:
+                raise ValueError("NOT_STARTED status must not have safe_message")
+        elif self.status == StageStatus.SKIPPED:
+            if self.committed_output is not None:
+                raise ValueError("SKIPPED status must not have committed_output")
+        return self
