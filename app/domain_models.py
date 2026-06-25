@@ -205,3 +205,40 @@ class Assumption(BaseModel):
                 "Assumption provenance origin must be ASSUMPTION"
             )
         return self
+
+
+class ExtractedSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_summary_origin(self) -> "ExtractedSummary":
+        if self.provenance.origin != OriginEnum.EXTRACTED:
+            raise ValueError(
+                "ExtractedSummary provenance origin must be EXTRACTED"
+            )
+        return self
+
+
+class RequirementAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: ExtractedSummary
+    requirements: list[Requirement] = Field(min_length=1, max_length=8)
+    acceptance_criteria: list[AcceptanceCriterion] = Field(
+        default_factory=list, max_length=20
+    )
+    business_rules: list[BusinessRule] = Field(
+        default_factory=list, max_length=12
+    )
+    ambiguities: list[Ambiguity] = Field(
+        default_factory=list, max_length=10
+    )
+    missing_information: list[MissingInformation] = Field(
+        default_factory=list, max_length=12
+    )
+    assumptions: list[Assumption] = Field(
+        default_factory=list, max_length=8
+    )
