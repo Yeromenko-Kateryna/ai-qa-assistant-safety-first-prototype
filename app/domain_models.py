@@ -289,3 +289,111 @@ class StageResult(BaseModel, Generic[T]):
             if self.committed_output is not None:
                 raise ValueError("SKIPPED status must not have committed_output")
         return self
+
+
+class SafetyFlag(str, Enum):
+    SECRET_REDACTED = "SECRET_REDACTED"
+    URL_DETECTED = "URL_DETECTED"
+    INJECTION_SUSPECTED = "INJECTION_SUSPECTED"
+    UNSAFE_ACTION_REQUEST = "UNSAFE_ACTION_REQUEST"
+
+
+class SafetyEventKind(str, Enum):
+    REDACTION = "REDACTION"
+    SIGNAL = "SIGNAL"
+
+
+class SafetyEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: SafetyId
+    kind: SafetyEventKind
+    safe_label: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    segment_id: SegmentId | None = None
+
+    @model_validator(mode="after")
+    def validate_safety_id_kind_alignment(self) -> "SafetyEvent":
+        if self.kind == SafetyEventKind.REDACTION and not self.id.startswith("RED-"):
+            raise ValueError("REDACTION safety event must use RED-NNN ID format")
+        if self.kind == SafetyEventKind.SIGNAL and not self.id.startswith("SIG-"):
+            raise ValueError("SIGNAL safety event must use SIG-NNN ID format")
+        return self
+
+
+class SanitizedSegment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: SegmentId
+    order: Annotated[int, Field(ge=1)]
+    text: Annotated[str, StringConstraints(max_length=2000)]
+    safety_flags: list[SafetyFlag] = Field(default_factory=list)
+    safety_event_ids: list[SafetyId] = Field(default_factory=list)
+
+    @field_validator("safety_flags", "safety_event_ids")
+    @classmethod
+    def reject_duplicates(cls, values: list) -> list:
+        if len(values) != len(set(values)):
+            raise ValueError("Duplicate values are not allowed")
+        return values
+
+
+class SanitizedInputEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    segments: list[SanitizedSegment] = Field(min_length=1, max_length=64)
+    safety_events: list[SafetyEvent] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_envelope_invariants(self) -> "SanitizedInputEnvelope":
+        # 1. Segment order continuity: must start at 1 and be contiguous
+        sorted_segments = sorted(self.segments, key=lambda s: s.order)
+        for idx, segment in enumerate(sorted_segments):
+            expected_order = idx + 1
+            if segment.order != expected_order:
+                raise ValueError(
+                    f"Segment order must be contiguous 1..N. "
+                    f"Expected order {expected_order}, got {segment.order}."
+                )
+
+        # 2. Unique Segment IDs
+        segment_ids = [s.id for s in self.segments]
+        if len(segment_ids) != len(set(segment_ids)):
+            raise ValueError("Segment IDs must be unique")
+
+        # 3. Unique Safety Event IDs
+        event_ids = [e.id for e in self.safety_events]
+        if len(event_ids) != len(set(event_ids)):
+            raise ValueError("Safety Event IDs must be unique")
+
+        # 4. Referential Integrity: safety_event_ids on segments must point to defined events
+        event_map = {e.id: e for e in self.safety_events}
+        for segment in self.segments:
+            for ev_id in segment.safety_event_ids:
+                if ev_id not in event_map:
+                    raise ValueError(
+                        f"Referenced safety event ID {ev_id} not found in safety_events"
+                    )
+                # Check segment ID mapping matches
+                event = event_map[ev_id]
+                if event.segment_id != segment.id:
+                    raise ValueError(
+                        f"Safety event {ev_id} references segment {event.segment_id}, "
+                        f"but is attached to segment {segment.id}"
+                    )
+
+        # 5. Safety event bidirectional mapping validation
+        segment_map = {s.id: s for s in self.segments}
+        for event in self.safety_events:
+            if event.segment_id is None:
+                raise ValueError(f"Safety event {event.id} must have segment_id")
+            if event.segment_id not in segment_map:
+                raise ValueError(
+                    f"Safety event {event.id} references non-existent segment {event.segment_id}"
+                )
+            segment = segment_map[event.segment_id]
+            if event.id not in segment.safety_event_ids:
+                raise ValueError(
+                    f"Safety event {event.id} is not listed in segment {segment.id}'s safety_event_ids"
+                )
+
+        return self
