@@ -96,3 +96,112 @@ class Provenance(BaseModel):
                 )
 
         return self
+
+
+# Specialized ID Types
+RequirementId = Annotated[str, StringConstraints(pattern=r"^REQ-[0-9]{3}$")]
+ACId = Annotated[str, StringConstraints(pattern=r"^AC-[0-9]{3}$")]
+BRId = Annotated[str, StringConstraints(pattern=r"^BR-[0-9]{3}$")]
+AMBId = Annotated[str, StringConstraints(pattern=r"^AMB-[0-9]{3}$")]
+MISSId = Annotated[str, StringConstraints(pattern=r"^MISS-[0-9]{3}$")]
+ASMId = Annotated[str, StringConstraints(pattern=r"^ASM-[0-9]{3}$")]
+
+
+class RequirementCategoryEnum(str, Enum):
+    FUNCTIONAL = "FUNCTIONAL"
+    NON_FUNCTIONAL = "NON_FUNCTIONAL"
+    CONSTRAINT = "CONSTRAINT"
+    UNKNOWN = "UNKNOWN"
+
+
+class Requirement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: RequirementId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    category: RequirementCategoryEnum
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_requirement_origin(self) -> "Requirement":
+        if self.provenance.origin != OriginEnum.EXTRACTED:
+            raise ValueError("Requirement provenance origin must be EXTRACTED")
+        return self
+
+
+class AcceptanceCriterion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: ACId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_ac_origin(self) -> "AcceptanceCriterion":
+        if self.provenance.origin not in (OriginEnum.EXTRACTED, OriginEnum.PROPOSED):
+            raise ValueError(
+                "AcceptanceCriterion provenance origin must be EXTRACTED or "
+                "PROPOSED"
+            )
+        return self
+
+
+class BusinessRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: BRId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_br_origin(self) -> "BusinessRule":
+        if self.provenance.origin != OriginEnum.EXTRACTED:
+            raise ValueError("BusinessRule provenance origin must be EXTRACTED")
+        return self
+
+
+class Ambiguity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: AMBId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_amb_origin(self) -> "Ambiguity":
+        if self.provenance.origin != OriginEnum.INFERRED:
+            raise ValueError("Ambiguity provenance origin must be INFERRED")
+        return self
+
+
+class MissingInformation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: MISSId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_miss_origin(self) -> "MissingInformation":
+        if self.provenance.origin != OriginEnum.MISSING_INFORMATION:
+            raise ValueError(
+                "MissingInformation provenance origin must be "
+                "MISSING_INFORMATION"
+            )
+        return self
+
+
+class Assumption(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: ASMId
+    description: Annotated[str, StringConstraints(max_length=4000)]
+    provenance: Provenance
+
+    @model_validator(mode="after")
+    def validate_asm_origin(self) -> "Assumption":
+        if self.provenance.origin != OriginEnum.ASSUMPTION:
+            raise ValueError(
+                "Assumption provenance origin must be ASSUMPTION"
+            )
+        return self

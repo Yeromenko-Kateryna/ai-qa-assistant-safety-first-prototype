@@ -8,6 +8,19 @@ from app.domain_models import (
     SafetyId,
     SegmentId,
     TransformationEnum,
+    RequirementId,
+    ACId,
+    BRId,
+    AMBId,
+    MISSId,
+    ASMId,
+    RequirementCategoryEnum,
+    Requirement,
+    AcceptanceCriterion,
+    BusinessRule,
+    Ambiguity,
+    MissingInformation,
+    Assumption,
 )
 
 
@@ -341,3 +354,217 @@ def test_rationale_boundary_constraints() -> None:
             error_type=error_type,
             location=("rationale",),
         )
+
+
+def test_specialized_id_types() -> None:
+    """Verifies regex pattern validation for specialized domain ID types."""
+    # RequirementId
+    adapter_req = TypeAdapter(RequirementId)
+    assert adapter_req.validate_python("REQ-000") == "REQ-000"
+    with pytest.raises(ValidationError):
+        adapter_req.validate_python("AC-001")
+
+    # ACId
+    adapter_ac = TypeAdapter(ACId)
+    assert adapter_ac.validate_python("AC-999") == "AC-999"
+    with pytest.raises(ValidationError):
+        adapter_ac.validate_python("REQ-001")
+
+    # BRId
+    adapter_br = TypeAdapter(BRId)
+    assert adapter_br.validate_python("BR-012") == "BR-012"
+    with pytest.raises(ValidationError):
+        adapter_br.validate_python("REQ-001")
+
+    # AMBId
+    adapter_amb = TypeAdapter(AMBId)
+    assert adapter_amb.validate_python("AMB-100") == "AMB-100"
+    with pytest.raises(ValidationError):
+        adapter_amb.validate_python("REQ-001")
+
+    # MISSId
+    adapter_miss = TypeAdapter(MISSId)
+    assert adapter_miss.validate_python("MISS-002") == "MISS-002"
+    with pytest.raises(ValidationError):
+        adapter_miss.validate_python("REQ-001")
+
+    # ASMId
+    adapter_asm = TypeAdapter(ASMId)
+    assert adapter_asm.validate_python("ASM-777") == "ASM-777"
+    with pytest.raises(ValidationError):
+        adapter_asm.validate_python("REQ-001")
+
+
+def test_entity_text_field_max_length_limitation() -> None:
+    """Verifies that entity description fields enforce max_length=4000."""
+    prov = Provenance(**extracted_provenance_data())
+
+    # Valid length <= 4000
+    req = Requirement(
+        id="REQ-001",
+        description="A" * 4000,
+        category=RequirementCategoryEnum.FUNCTIONAL,
+        provenance=prov
+    )
+    assert len(req.description) == 4000
+
+    # Invalid length > 4000 (Source: docs/RESOURCE_LIMITS.md — Object Size Limits)
+    model_configs = [
+        (Requirement, "REQ-001", prov, {"category": RequirementCategoryEnum.FUNCTIONAL}),
+        (AcceptanceCriterion, "AC-001", Provenance(
+            origin=OriginEnum.PROPOSED,
+            transformation=TransformationEnum.NONE,
+            source_segment_ids=[],
+            derived_from_ids=["REQ-001"],
+            rationale="Proposed rationale",
+        ), {}),
+        (BusinessRule, "BR-001", prov, {}),
+        (Ambiguity, "AMB-001", Provenance(
+            origin=OriginEnum.INFERRED,
+            transformation=TransformationEnum.NONE,
+            source_segment_ids=[],
+            derived_from_ids=["REQ-001"],
+            rationale="Inferred rationale",
+        ), {}),
+        (MissingInformation, "MISS-001", Provenance(
+            origin=OriginEnum.MISSING_INFORMATION,
+            transformation=TransformationEnum.NONE,
+            source_segment_ids=[],
+            derived_from_ids=["REQ-001"],
+            rationale="Missing information rationale",
+        ), {}),
+        (Assumption, "ASM-001", Provenance(
+            origin=OriginEnum.ASSUMPTION,
+            transformation=TransformationEnum.NONE,
+            source_segment_ids=[],
+            derived_from_ids=["REQ-001"],
+            rationale="Assumption rationale",
+        ), {}),
+    ]
+
+    for model_class, entity_id, entity_prov, extra_args in model_configs:
+        with pytest.raises(ValidationError) as exc_info:
+            model_class(
+                id=entity_id,
+                description="A" * 4001,
+                provenance=entity_prov,
+                **extra_args
+            )
+        assert_validation_error(exc_info.value, error_type="string_too_long", location=("description",))
+
+
+def test_entity_extra_fields_rejection() -> None:
+    """Verifies that all new entity models reject unknown extra fields (extra='forbid')."""
+    prov = Provenance(**extracted_provenance_data())
+    proposed_prov = Provenance(
+        origin=OriginEnum.PROPOSED,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Proposed rationale",
+    )
+    inferred_prov = Provenance(
+        origin=OriginEnum.INFERRED,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Inferred rationale",
+    )
+    missing_prov = Provenance(
+        origin=OriginEnum.MISSING_INFORMATION,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Missing information rationale",
+    )
+    assumption_prov = Provenance(
+        origin=OriginEnum.ASSUMPTION,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Assumption rationale",
+    )
+
+    model_configs = [
+        (Requirement, "REQ-001", prov, {"category": RequirementCategoryEnum.FUNCTIONAL}),
+        (AcceptanceCriterion, "AC-001", proposed_prov, {}),
+        (BusinessRule, "BR-001", prov, {}),
+        (Ambiguity, "AMB-001", inferred_prov, {}),
+        (MissingInformation, "MISS-001", missing_prov, {}),
+        (Assumption, "ASM-001", assumption_prov, {}),
+    ]
+
+    for model_class, entity_id, entity_prov, extra_args in model_configs:
+        with pytest.raises(ValidationError) as exc_info:
+            model_class(
+                id=entity_id,
+                description="Valid description",
+                provenance=entity_prov,
+                extra_field="rejected",
+                **extra_args
+            )
+        assert_validation_error(exc_info.value, error_type="extra_forbidden", location=("extra_field",))
+
+
+def test_entity_provenance_origin_invariants() -> None:
+    """Verifies correct and incorrect provenance origins for each entity model."""
+    extracted_prov = Provenance(**extracted_provenance_data())
+    proposed_prov = Provenance(
+        origin=OriginEnum.PROPOSED,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Proposed rationale",
+    )
+    inferred_prov = Provenance(
+        origin=OriginEnum.INFERRED,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Inferred rationale",
+    )
+    missing_prov = Provenance(
+        origin=OriginEnum.MISSING_INFORMATION,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Missing info rationale",
+    )
+    assumption_prov = Provenance(
+        origin=OriginEnum.ASSUMPTION,
+        transformation=TransformationEnum.NONE,
+        source_segment_ids=[],
+        derived_from_ids=["REQ-001"],
+        rationale="Assumption rationale",
+    )
+
+    # 1. Requirement: EXTRACTED only
+    Requirement(id="REQ-001", description="desc", category=RequirementCategoryEnum.FUNCTIONAL, provenance=extracted_prov)
+    with pytest.raises(ValidationError):
+        Requirement(id="REQ-001", description="desc", category=RequirementCategoryEnum.FUNCTIONAL, provenance=proposed_prov)
+
+    # 2. AcceptanceCriterion: EXTRACTED or PROPOSED only
+    AcceptanceCriterion(id="AC-001", description="desc", provenance=extracted_prov)
+    AcceptanceCriterion(id="AC-001", description="desc", provenance=proposed_prov)
+    with pytest.raises(ValidationError):
+        AcceptanceCriterion(id="AC-001", description="desc", provenance=inferred_prov)
+
+    # 3. BusinessRule: EXTRACTED only
+    BusinessRule(id="BR-001", description="desc", provenance=extracted_prov)
+    with pytest.raises(ValidationError):
+        BusinessRule(id="BR-001", description="desc", provenance=proposed_prov)
+
+    # 4. Ambiguity: INFERRED only
+    Ambiguity(id="AMB-001", description="desc", provenance=inferred_prov)
+    with pytest.raises(ValidationError):
+        Ambiguity(id="AMB-001", description="desc", provenance=extracted_prov)
+
+    # 5. MissingInformation: MISSING_INFORMATION only
+    MissingInformation(id="MISS-001", description="desc", provenance=missing_prov)
+    with pytest.raises(ValidationError):
+        MissingInformation(id="MISS-001", description="desc", provenance=extracted_prov)
+
+    # 6. Assumption: ASSUMPTION only
+    Assumption(id="ASM-001", description="desc", provenance=assumption_prov)
+    with pytest.raises(ValidationError):
+        Assumption(id="ASM-001", description="desc", provenance=extracted_prov)
