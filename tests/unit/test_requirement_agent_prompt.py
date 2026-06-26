@@ -158,3 +158,46 @@ def test_prompt_import_isolation():
     assert "google.auth" not in sys.modules
     assert "google.adk" not in sys.modules
     assert "google.genai" not in sys.modules
+
+
+def test_build_requirement_agent_prompt_provenance_contract():
+    prompt = build_requirement_agent_prompt(TEST_ENVELOPE)
+
+    # 1. Exact EXTRACTED summary provenance contract
+    assert "EXTRACTED Summary" in prompt
+    assert "SUMMARY" in prompt
+    assert 'Non-empty array (e.g. ["SEG-001"])' in prompt
+
+    # 2. Exact EXTRACTED requirement provenance contract
+    assert "EXTRACTED Requirement" in prompt
+    assert "VERBATIM or PARAPHRASE" in prompt
+
+    # 3. Exact non-extracted entity provenance contract
+    assert "Non-extracted Entity" in prompt
+    assert "PROPOSED, ASSUMPTION, INFERRED, or MISSING_INFORMATION" in prompt
+    assert "NONE" in prompt
+
+    # 4. Forbidden rule: EXTRACTED must not use NONE
+    assert "EXTRACTED entities MUST NOT use transformation NONE" in prompt
+
+    # 5. Forbidden rule: non-extracted must not use SUMMARY, VERBATIM, or PARAPHRASE
+    assert "Non-extracted entities (e.g., ambiguities, missing_information, assumptions, business_rules, acceptance_criteria) MUST NOT use SUMMARY, VERBATIM, or PARAPHRASE" in prompt
+
+    # 6. Uppercase enum instructions
+    assert "Do not use lowercase enum labels (e.g., use 'EXTRACTED', not 'extracted')" in prompt
+    assert "Do not use natural-language enum labels (e.g., use 'NONE', not 'none' or 'untransformed')" in prompt
+
+    # 7. Nested provenance object shape instruction
+    assert "Every entity and the summary must include a nested 'provenance' object" in prompt
+
+    # 8. Valid summary provenance example in skeleton JSON
+    assert '"origin": "EXTRACTED"' in prompt
+    assert '"transformation": "SUMMARY"' in prompt
+
+    # 9. Valid requirement provenance example in skeleton JSON
+    assert '"origin": "EXTRACTED"' in prompt
+    assert '"transformation": "VERBATIM"' in prompt
+    # 10. Valid non-extracted provenance example
+    assert '"origin": "PROPOSED"' in prompt
+    assert '"transformation": "NONE"' in prompt
+    assert '"derived_from_ids": ["REQ-001"]' in prompt
