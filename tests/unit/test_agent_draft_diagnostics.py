@@ -461,3 +461,221 @@ def test_pydantic_error_categories():
     assert "url" not in serialized
     assert "repr" not in serialized
     assert "e.errors" not in serialized
+
+
+def test_profile_domain_validators():
+    from pydantic import ValidationError
+    from app.domain_models import RequirementAnalysis
+
+    # Helper to construct a base draft dict
+    def get_base_dict():
+        return {
+            "summary": {
+                "text": "Valid summary text",
+                "provenance": {
+                    "origin": "EXTRACTED",
+                    "transformation": "SUMMARY",
+                    "source_segment_ids": ["SEG-001"],
+                    "derived_from_ids": [],
+                    "rationale": None
+                }
+            },
+            "requirements": [
+                {
+                    "id": "REQ-001",
+                    "description": "System health status indicator.",
+                    "category": "FUNCTIONAL",
+                    "provenance": {
+                        "origin": "EXTRACTED",
+                        "transformation": "VERBATIM",
+                        "source_segment_ids": ["SEG-001"],
+                        "derived_from_ids": [],
+                        "rationale": None
+                    }
+                }
+            ],
+            "acceptance_criteria": [],
+            "business_rules": [],
+            "ambiguities": [],
+            "missing_information": [],
+            "assumptions": []
+        }
+
+    # SAFE PROFILING MAPPINGS REGISTER:
+    # 1. wrong ambiguity id prefix/format -> string_pattern_mismatch -> ('ambiguities', 0, 'id')
+    # 2. missing or empty rationale -> value_error -> ('ambiguities', 0, 'provenance', 'rationale')
+    # 3. invalid origin/transformation combo -> value_error -> ('ambiguities', 0, 'provenance')
+    # 4. non-empty source_segment_ids -> value_error -> ('ambiguities', 0, 'provenance')
+    # 5. empty derived_from_ids -> value_error -> ('ambiguities', 0, 'provenance')
+    # 6. malformed derived_from_ids reference format -> string_pattern_mismatch -> ('ambiguities', 0, 'provenance', 'derived_from_ids', 0)
+    # 7. empty description -> value_error -> ('ambiguities', 0)
+    # 8. wrong object shape / extra keys -> extra_forbidden -> ('ambiguities', 0, 'extra_key')
+
+    # Case 1: wrong ambiguity id prefix/format
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "string_pattern_mismatch"
+            assert err.get("loc") == ("ambiguities", 0, "id")
+
+    # Case 2: missing or empty rationale for non-extracted provenance
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": ""
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") in ("value_error", "string_too_short")
+            assert err.get("loc") == ("ambiguities", 0, "provenance", "rationale")
+
+    # Case 3: invalid origin/transformation combination
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "VERBATIM",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "value_error"
+            assert err.get("loc") == ("ambiguities", 0, "provenance")
+
+    # Case 4: non-empty source_segment_ids for non-extracted entity
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": ["SEG-001"],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "value_error"
+            assert err.get("loc") == ("ambiguities", 0, "provenance")
+
+    # Case 5: empty derived_from_ids for non-extracted entity
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": [],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "value_error"
+            assert err.get("loc") == ("ambiguities", 0, "provenance")
+
+    # Case 6: malformed derived_from_ids reference format
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "string_pattern_mismatch"
+            assert err.get("loc") == ("ambiguities", 0, "provenance", "derived_from_ids", 0)
+
+    # Case 7: empty description
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "value_error"
+            assert err.get("loc") == ("ambiguities", 0)
+
+    # Case 8: wrong object shape / unallowed extra keys
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Valid desc",
+        "extra_key": "val",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Valid rationale"
+        }
+    }]
+    try:
+        RequirementAnalysis.model_validate(d)
+        assert False, "Should raise ValidationError"
+    except ValidationError as e:
+        for err in e.errors():
+            assert err.get("type") == "extra_forbidden"
+            assert err.get("loc") == ("ambiguities", 0, "extra_key")
