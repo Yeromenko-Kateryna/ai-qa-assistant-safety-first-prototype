@@ -1,4 +1,16 @@
+import re
 from app.domain_models import RequirementAnalysis, StageResult, StageStatus
+
+
+def sanitize_text(text: str) -> str:
+    """Neutralizes control characters and strips HTML/XML-like tags to prevent injection."""
+    if not text:
+        return ""
+    # Strip HTML/XML-like tags
+    text = re.sub(r"<[^>]*>", "", text)
+    # Neutralize control characters (except newline, tab, carriage return)
+    text = "".join(ch for ch in text if ch >= " " or ch in "\n\r\t")
+    return text
 
 
 def render_requirement_analysis_markdown(
@@ -68,5 +80,63 @@ def render_requirement_analysis_markdown(
         # SKIPPED note rendering is allowed if a safe_message exists (upstream skipped routing deferred)
         if result.safe_message:
             lines.extend(["## Note", result.safe_message, ""])
+
+    return "\n".join(lines)
+
+
+def render_safe_requirement_analysis_markdown(
+    result: StageResult[RequirementAnalysis],
+) -> str:
+    """Renders a safe user-facing plain text / Markdown report from a StageResult[RequirementAnalysis]."""
+    lines = ["# AI QA Assistant Report", ""]
+
+    # 1. Stage Status Section
+    status_str = result.status.name if hasattr(result.status, "name") else str(result.status)
+    lines = ["# AI QA Assistant Report", "", "## Stage Status", f"Stage Status: {status_str}", ""]
+
+    if result.status == StageStatus.SUCCESS:
+        committed = result.committed_output
+        if committed is None:
+            raise ValueError("SUCCESS status requires committed_output")
+
+        # 2. Summary
+        lines.extend(["## Summary", sanitize_text(committed.summary.text), ""])
+
+        # 3. Requirements (sorted by description, rendered as a bulleted list to avoid exposing sequential IDs)
+        # Note: Do NOT render entity IDs (e.g. REQ-001) or provenance
+        lines.append("## Requirements")
+        if committed.requirements:
+            # Sort by description to ensure deterministic order without relying on IDs
+            sorted_reqs = sorted(committed.requirements, key=lambda r: r.description)
+            for req in sorted_reqs:
+                cat_val = req.category.value if hasattr(req.category, 'value') else str(req.category)
+                lines.append(f"- [{sanitize_text(cat_val)}] {sanitize_text(req.description)}")
+        else:
+            lines.append("_No requirements available._")
+        lines.append("")
+
+        # 4. Acceptance Criteria
+        # Note: Do NOT render entity IDs (e.g. AC-001) or provenance/rationales
+        lines.append("## Acceptance Criteria")
+        if committed.acceptance_criteria:
+            # Sort by description to ensure deterministic order without relying on IDs
+            sorted_ac = sorted(committed.acceptance_criteria, key=lambda ac: ac.description)
+            for ac in sorted_ac:
+                lines.append(f"- {sanitize_text(ac.description)}")
+        else:
+            lines.append("No acceptance criteria available.")
+        lines.append("")
+
+    elif result.status == StageStatus.FAILED:
+        # FAILED rendering behavior
+        lines.append("## Error")
+        lines.append("Requirement analysis failed: structural or semantic validation error.")
+        if result.error_code:
+            lines.append(f"Error Code: {sanitize_text(str(result.error_code))}")
+        lines.append("")
+
+    elif result.status == StageStatus.SKIPPED:
+        if result.safe_message:
+            lines.extend(["## Note", sanitize_text(result.safe_message), ""])
 
     return "\n".join(lines)

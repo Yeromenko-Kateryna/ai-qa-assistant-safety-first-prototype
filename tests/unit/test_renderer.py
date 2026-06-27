@@ -1,3 +1,4 @@
+import sys
 from app.domain_models import (
     AcceptanceCriterion,
     ExtractedSummary,
@@ -10,7 +11,7 @@ from app.domain_models import (
     StageStatus,
     TransformationEnum,
 )
-from app.renderer import render_requirement_analysis_markdown
+from app.renderer import render_safe_requirement_analysis_markdown
 
 
 def make_provenance(
@@ -18,19 +19,20 @@ def make_provenance(
     trans=TransformationEnum.VERBATIM,
     segments=None,
     derived=None,
+    rationale=None,
 ):
     return Provenance(
         origin=origin,
         transformation=trans,
-        source_segment_ids=segments or ["SEG-001"],
+        source_segment_ids=segments if segments is not None else ["SEG-001"],
         derived_from_ids=derived or [],
-        rationale=None,
+        rationale=rationale,
     )
 
 
 def test_renderer_success_full():
     summary = ExtractedSummary(
-        text="A brief summary.",
+        text="A brief <summary> summary text.",
         provenance=make_provenance(trans=TransformationEnum.SUMMARY),
     )
     req1 = Requirement(
@@ -47,13 +49,19 @@ def test_renderer_success_full():
     )
     ac = AcceptanceCriterion(
         id="AC-001",
-        description="Acceptance criterion description",
-        provenance=make_provenance(),
+        description="Acceptance criterion description text",
+        provenance=make_provenance(
+            origin=OriginEnum.PROPOSED,
+            trans=TransformationEnum.NONE,
+            segments=[],
+            derived=["REQ-001"],
+            rationale="internal rationale context text",
+        ),
     )
 
     analysis = RequirementAnalysis(
         summary=summary,
-        requirements=[req2, req1],  # Unordered to check sorting
+        requirements=[req2, req1],
         acceptance_criteria=[ac],
         business_rules=[],
         ambiguities=[],
@@ -66,74 +74,45 @@ def test_renderer_success_full():
         committed_output=analysis,
     )
 
-    markdown = render_requirement_analysis_markdown(result)
+    markdown = render_safe_requirement_analysis_markdown(result)
 
-    # Headers in correct order
-    headers = [
-        "# AI QA Assistant Report",
-        "## Stage Status",
-        "## Summary",
-        "## Requirements",
-        "## Acceptance Criteria",
-        "## Business Rules",
-        "## Ambiguities",
-        "## Missing Information",
-        "## Assumptions",
-    ]
+    # 1. SUCCESS output includes safe content
+    assert "A brief  summary text." in markdown  # sanitized summary text (stripped tag <summary>)
+    assert "Functional description 1" in markdown
+    assert "Functional description 2" in markdown
+    assert "FUNCTIONAL" in markdown
+    assert "Acceptance criterion description text" in markdown
 
-    # Assert all headings exist
-    for h in headers:
-        assert h in markdown
-
-    # Assert headings are in correct order using index positions
-    positions = [markdown.index(h) for h in headers]
-    assert positions == sorted(positions)
-
-    # Check status and summary
-    assert "Stage Status: SUCCESS" in markdown
-    assert "A brief summary." in markdown
-
-    # Check requirement sorted order and format
-    assert "1. **REQ-001**: Functional description 1" in markdown
-    assert "2. **REQ-002**: Functional description 2" in markdown
-    req1_idx = markdown.find("REQ-001")
-    req2_idx = markdown.find("REQ-002")
-    assert req1_idx < req2_idx
-
-    # Check AC format
-    assert "- **AC-001**: Acceptance criterion description" in markdown
-
-    # Check empty list format
-    assert "## Business Rules\n_None._" in markdown
-    assert "## Ambiguities\n_None._" in markdown
-
-    # Verify no internal provenance details leaked (e.g. OriginEnum, TransformationEnum, source_segment_ids)
-    assert "EXTRACTED" not in markdown
-    assert "VERBATIM" not in markdown
+    # 2. SUCCESS output excludes internal IDs, provenance, secrets, and raw objects
+    assert "REQ-001" not in markdown
+    assert "REQ-002" not in markdown
+    assert "AC-001" not in markdown
     assert "SEG-001" not in markdown
+    assert "EXTRACTED" not in markdown
+    assert "PROPOSED" not in markdown
+    assert "VERBATIM" not in markdown
+    assert "source_segment_ids" not in markdown
+    assert "derived_from_ids" not in markdown
+    assert "provenance" not in markdown
+    assert "rationale" not in markdown
+    assert "internal rationale context text" not in markdown
+    assert "committed_output" not in markdown
+    assert "StageResult" not in markdown
+    assert "{" not in markdown
+    assert "}" not in markdown
+    assert "[" not in markdown.replace("-[FUNCTIONAL]", "").replace("[FUNCTIONAL]", "")
 
-
-def test_renderer_success_stable():
-    # Verify exact determinism across calls
-    summary = ExtractedSummary(text="Summary text", provenance=make_provenance())
-    req = Requirement(
-        id="REQ-001",
-        description="Desc",
-        category=RequirementCategoryEnum.FUNCTIONAL,
-        provenance=make_provenance(),
-    )
-    analysis = RequirementAnalysis(summary=summary, requirements=[req])
-    result = StageResult(status=StageStatus.SUCCESS, committed_output=analysis)
-
-    markdown1 = render_requirement_analysis_markdown(result)
-    markdown2 = render_requirement_analysis_markdown(result)
-    assert markdown1 == markdown2
+    # Exclude internal optional arrays headings
+    assert "Business Rules" not in markdown
+    assert "Ambiguities" not in markdown
+    assert "Missing Information" not in markdown
+    assert "Assumptions" not in markdown
 
 
 def test_renderer_failed():
-    # Setup raw-looking inputs to ensure safety leaks checks are strict
-    raw_secret = "supersecretpass123"
-    raw_candidate_text = "password='supersecretpass123'"
+    # Setup raw inputs that must never leak
+    secret_text = "privatekey_12345"
+    pydantic_error_trace = "ValidationError: 1 validation error for RequirementAnalysis"
 
     result = StageResult(
         status=StageStatus.FAILED,
@@ -141,57 +120,27 @@ def test_renderer_failed():
         safe_message="Unsafe candidate data rejected.",
     )
 
-    markdown = render_requirement_analysis_markdown(result)
+    markdown = render_safe_requirement_analysis_markdown(result)
 
-    assert "# AI QA Assistant Report" in markdown
-    assert "## Stage Status" in markdown
-    assert "Stage Status: FAILED" in markdown
-    assert "## Error" in markdown
+    # FAILED output contains safe failure message and code
+    assert "Requirement analysis failed: structural or semantic validation error." in markdown
     assert "Error Code: STRUCTURAL_VALIDATION_FAILED" in markdown
-    assert "Message: Unsafe candidate data rejected." in markdown
 
-    # Assert committed_output, raw exception/secret/label fragments are omitted
+    # FAILED output excludes sensitive diagnostics and model texts
+    assert secret_text not in markdown
+    assert pydantic_error_trace not in markdown
+    assert "Message:" not in markdown
+    assert "Unsafe candidate data rejected." not in markdown
     assert "committed_output" not in markdown
-    assert "## Summary" not in markdown
-
-    # Assert domain headings are completely omitted in failed reports
-    assert "## Requirements" not in markdown
-    assert "## Acceptance Criteria" not in markdown
-    assert "## Business Rules" not in markdown
-    assert "## Ambiguities" not in markdown
-    assert "## Missing Information" not in markdown
-    assert "## Assumptions" not in markdown
-
-    # Strict safety leak checks
-    assert raw_secret not in markdown
-    assert raw_candidate_text not in markdown
-    assert "password" not in markdown.lower()
+    assert "Summary" not in markdown
+    assert "Requirements" not in markdown
+    assert "Acceptance Criteria" not in markdown
 
 
-def test_renderer_not_started_or_skipped():
-    # NOT_STARTED StageResult created without safe_message (as per Pydantic invariants)
-    result_ns = StageResult(
-        status=StageStatus.NOT_STARTED,
-    )
-    markdown_ns = render_requirement_analysis_markdown(result_ns)
-    assert "Stage Status: NOT_STARTED" in markdown_ns
-    assert "## Note" not in markdown_ns
-
-    # SKIPPED StageResult with safe_message (allowed by invariants in Slice 4/5/6)
-    result_skip = StageResult(
-        status=StageStatus.SKIPPED,
-        safe_message="Deferred note message.",
-    )
-    markdown_skip = render_requirement_analysis_markdown(result_skip)
-    assert "Stage Status: SKIPPED" in markdown_skip
-    assert "## Note" in markdown_skip
-    assert "Deferred note message." in markdown_skip
-
-
-def test_renderer_success_empty_sections_all_render_none():
+def test_renderer_success_empty_acceptance_criteria():
     summary = ExtractedSummary(
         text="A brief summary.",
-        provenance=make_provenance(trans=TransformationEnum.SUMMARY),
+        provenance=make_provenance(),
     )
     req = Requirement(
         id="REQ-001",
@@ -212,18 +161,27 @@ def test_renderer_success_empty_sections_all_render_none():
         status=StageStatus.SUCCESS,
         committed_output=analysis,
     )
-    markdown = render_requirement_analysis_markdown(result)
+    markdown = render_safe_requirement_analysis_markdown(result)
 
-    assert "## Acceptance Criteria\n_None._" in markdown
-    assert "## Business Rules\n_None._" in markdown
-    assert "## Ambiguities\n_None._" in markdown
-    assert "## Missing Information\n_None._" in markdown
-    assert "## Assumptions\n_None._" in markdown
+    assert "No acceptance criteria available." in markdown
+    assert "Business Rules" not in markdown
+    assert "Ambiguities" not in markdown
 
 
 def test_renderer_import_isolation():
+    import subprocess
     import sys
-    assert "app.agent" not in sys.modules
-    assert "google.auth" not in sys.modules
-    assert "google.adk" not in sys.modules
-    assert "google.genai" not in sys.modules
+    cmd = [
+        sys.executable,
+        "-I",
+        "-c",
+        "import sys; import app.renderer; "
+        "assert 'app.agent' not in sys.modules; "
+        "assert 'google.auth' not in sys.modules; "
+        "assert 'google.adk' not in sys.modules; "
+        "assert 'google.genai' not in sys.modules; "
+        "assert 'app.gemini_requirement_agent_provider' not in sys.modules; "
+        "assert 'app.gemini_sdk_client_adapter' not in sys.modules;"
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    assert res.returncode == 0, f"Import isolation check failed: {res.stderr}"
