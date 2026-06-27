@@ -125,6 +125,11 @@ def test_successful_request_attempts_exactly_one_request():
     assert summary["error_code"] is None
     assert summary["committed_output_exists"]
     assert summary["requirement_count"] == 1
+    assert summary["acceptance_criteria_count"] == 0
+    assert summary["business_rules_count"] == 0
+    assert summary["ambiguities_count"] == 0
+    assert summary["missing_information_count"] == 0
+    assert summary["assumptions_count"] == 0
 
 
 def test_provider_timeout_mapping():
@@ -568,6 +573,11 @@ def test_diag_safe_summary_formatting():
         "error_code": "AGENT_DRAFT_VALIDATION_FAILED",
         "committed_output_exists": False,
         "requirement_count": 0,
+        "acceptance_criteria_count": 0,
+        "business_rules_count": 0,
+        "ambiguities_count": 0,
+        "missing_information_count": 0,
+        "assumptions_count": 0,
         "diagnostics_included": True,
         "diagnostic_status": "FAILED",
         "failure_phase": "SCHEMA",
@@ -660,6 +670,12 @@ def test_runner_second_synthetic_fixture():
     # 1. Verify runner execution succeeded with dummy response
     assert summary["stage_status"] == "SUCCESS"
     assert summary["committed_output_exists"] is True
+    assert summary["requirement_count"] == 1
+    assert summary["acceptance_criteria_count"] == 0
+    assert summary["business_rules_count"] == 0
+    assert summary["ambiguities_count"] == 0
+    assert summary["missing_information_count"] == 0
+    assert summary["assumptions_count"] == 0
 
     # 2. Verify prompt was captured exactly once
     assert len(captured_prompts) == 1
@@ -692,3 +708,83 @@ def test_runner_second_synthetic_fixture():
     assert "transaction storage" not in prompt_text.lower()
     assert "database safety criteria" not in prompt_text.lower()
     assert "database compliance" not in prompt_text.lower()
+
+
+def test_runner_safe_aggregate_counts_populated():
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+
+    class MockAdapter:
+        def __init__(self, api_key):
+            self.api_key = api_key
+
+        def generate_content(self, model_name, prompt):
+            dummy_json = (
+                '{"summary": {"text": "dummy summary", "provenance": {"origin": "EXTRACTED", '
+                '"transformation": "SUMMARY", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], '
+                '"rationale": null}}, '
+                '"requirements": ['
+                '  {"id": "REQ-001", "description": "req 1", "category": "FUNCTIONAL", "provenance": {"origin": "EXTRACTED", "transformation": "VERBATIM", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], "rationale": null}},'
+                '  {"id": "REQ-002", "description": "req 2", "category": "FUNCTIONAL", "provenance": {"origin": "EXTRACTED", "transformation": "VERBATIM", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], "rationale": null}}'
+                '], '
+                '"acceptance_criteria": ['
+                '  {"id": "AC-001", "description": "ac 1", "provenance": {"origin": "PROPOSED", "transformation": "NONE", "source_segment_ids": [], "derived_from_ids": ["REQ-001"], "rationale": "reason"}}'
+                '], '
+                '"business_rules": ['
+                '  {"id": "BR-001", "description": "br 1", "provenance": {"origin": "EXTRACTED", "transformation": "VERBATIM", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], "rationale": null}},'
+                '  {"id": "BR-002", "description": "br 2", "provenance": {"origin": "EXTRACTED", "transformation": "VERBATIM", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], "rationale": null}}'
+                '], '
+                '"ambiguities": ['
+                '  {"id": "AMB-001", "description": "amb 1", "provenance": {"origin": "INFERRED", "transformation": "NONE", "source_segment_ids": [], "derived_from_ids": ["REQ-001"], "rationale": "reason"}}'
+                '], '
+                '"missing_information": ['
+                '  {"id": "MISS-001", "description": "miss 1", "provenance": {"origin": "MISSING_INFORMATION", "transformation": "NONE", "source_segment_ids": [], "derived_from_ids": ["REQ-001"], "rationale": "reason"}},'
+                '  {"id": "MISS-002", "description": "miss 2", "provenance": {"origin": "MISSING_INFORMATION", "transformation": "NONE", "source_segment_ids": [], "derived_from_ids": ["REQ-001"], "rationale": "reason"}}'
+                '], '
+                '"assumptions": ['
+                '  {"id": "ASM-001", "description": "asm 1", "provenance": {"origin": "ASSUMPTION", "transformation": "NONE", "source_segment_ids": [], "derived_from_ids": ["REQ-001"], "rationale": "reason"}}'
+                ']}'
+            )
+            return StubResponse(text=dummy_json)
+
+    def fake_import():
+        pass
+
+    summary = runner.execute_request(fake_environ, fake_import, client_adapter_class=MockAdapter)
+
+    assert summary["stage_status"] == "SUCCESS"
+    assert summary["committed_output_exists"] is True
+    assert summary["requirement_count"] == 2
+    assert summary["acceptance_criteria_count"] == 1
+    assert summary["business_rules_count"] == 2
+    assert summary["ambiguities_count"] == 1
+    assert summary["missing_information_count"] == 2
+    assert summary["assumptions_count"] == 1
+
+    import json
+    summary_serialized = json.dumps(summary, sort_keys=True)
+    forbidden_payload_values = [
+        "REQ-001",
+        "REQ-002",
+        "AC-001",
+        "BR-001",
+        "AMB-001",
+        "MISS-001",
+        "ASM-001",
+        "req 1",
+        "req 2",
+        "ac 1",
+        "br 1",
+        "amb 1",
+        "miss 1",
+        "asm 1",
+        "SEG-001",
+        "reason",
+        "source_segment_ids",
+        "derived_from_ids",
+        "provenance"
+    ]
+    for val in forbidden_payload_values:
+        assert val not in summary_serialized

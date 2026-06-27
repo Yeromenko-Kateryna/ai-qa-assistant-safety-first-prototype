@@ -81,6 +81,11 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
         "error_code": "AGENT_PROVIDER_FAILED",
         "committed_output_exists": False,
         "requirement_count": 0,
+        "acceptance_criteria_count": 0,
+        "business_rules_count": 0,
+        "ambiguities_count": 0,
+        "missing_information_count": 0,
+        "assumptions_count": 0,
         "diagnostics_included": False,
     }
 
@@ -156,8 +161,19 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
 
         if result.status == StageStatus.SUCCESS:
             summary["committed_output_exists"] = result.committed_output is not None
-            if result.committed_output and hasattr(result.committed_output, "requirements"):
-                summary["requirement_count"] = len(result.committed_output.requirements)
+            if result.committed_output:
+                if hasattr(result.committed_output, "requirements"):
+                    summary["requirement_count"] = len(result.committed_output.requirements)
+                if hasattr(result.committed_output, "acceptance_criteria"):
+                    summary["acceptance_criteria_count"] = len(result.committed_output.acceptance_criteria)
+                if hasattr(result.committed_output, "business_rules"):
+                    summary["business_rules_count"] = len(result.committed_output.business_rules)
+                if hasattr(result.committed_output, "ambiguities"):
+                    summary["ambiguities_count"] = len(result.committed_output.ambiguities)
+                if hasattr(result.committed_output, "missing_information"):
+                    summary["missing_information_count"] = len(result.committed_output.missing_information)
+                if hasattr(result.committed_output, "assumptions"):
+                    summary["assumptions_count"] = len(result.committed_output.assumptions)
         else:
             summary["committed_output_exists"] = False
 
@@ -249,6 +265,11 @@ def main():
     print(f"StageResult.error_code: {summary['error_code']}")
     print(f"committed_output exists: {summary['committed_output_exists']}")
     print(f"Requirement count: {summary['requirement_count']}")
+    print(f"Acceptance criteria count: {summary['acceptance_criteria_count']}")
+    print(f"Business rules count: {summary['business_rules_count']}")
+    print(f"Ambiguities count: {summary['ambiguities_count']}")
+    print(f"Missing information count: {summary['missing_information_count']}")
+    print(f"Assumptions count: {summary['assumptions_count']}")
     print(f"Diagnostics included: {summary.get('diagnostics_included', False)}")
     for line in format_safe_diagnostic_lines(summary):
         print(line)
