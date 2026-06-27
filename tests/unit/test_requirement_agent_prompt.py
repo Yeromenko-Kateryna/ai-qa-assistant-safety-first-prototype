@@ -181,7 +181,7 @@ def test_build_requirement_agent_prompt_provenance_contract():
     assert "EXTRACTED entities MUST NOT use transformation NONE" in prompt
 
     # 5. Forbidden rule: non-extracted must not use SUMMARY, VERBATIM, or PARAPHRASE
-    assert "Non-extracted entities (e.g., ambiguities, missing_information, assumptions, business_rules, acceptance_criteria) MUST NOT use SUMMARY, VERBATIM, or PARAPHRASE" in prompt
+    assert "Non-extracted entity instances, including PROPOSED acceptance_criteria, MUST NOT use SUMMARY, VERBATIM, or PARAPHRASE" in prompt
 
     # 6. Uppercase enum instructions
     assert "Do not use lowercase enum labels (e.g., use 'EXTRACTED', not 'extracted')" in prompt
@@ -229,26 +229,32 @@ def test_build_requirement_agent_prompt_non_extracted_shapes():
     assert "Every entity MUST include the nested 'provenance' object" in prompt
     assert "Do not include arbitrary extra keys not listed for that entity schema" in prompt
 
-    # 4. Verify prompt explicitly instructs optional lists to be empty arrays [] and frames the table as fallback
-    assert "TEMPORARY OUTPUT SCOPE RULE: Generate empty arrays [] for: acceptance_criteria, business_rules, ambiguities, missing_information, assumptions." in prompt
-    assert "FALLBACK VALIDATION RULES FOR OPTIONAL ENTITY ITEMS:" in prompt
+    # 4. Verify prompt instructs that other optional lists must be empty arrays [], and frames them as fallback validation rules
+    assert "TEMPORARY OUTPUT SCOPE RULE: You may generate valid AcceptanceCriterion objects in the acceptance_criteria list under the strict rules above. If you cannot satisfy the validation rules for them, you must return [] for acceptance_criteria. You must generate empty arrays [] for: business_rules, ambiguities, missing_information, assumptions." in prompt
+    assert "FALLBACK VALIDATION RULES FOR OTHER OPTIONAL ENTITY ITEMS:" in prompt
     assert "GENERATED NON-EXTRACTED ENTITY SHAPE" not in prompt
     assert "Fallback valid origin" in prompt
     assert "Fallback valid transformation" in prompt
+    assert "acceptance_criteria: 0..20 AcceptanceCriterion objects" in prompt
 
     # 5. Verify valid skeleton includes all required top-level keys
     assert '"summary": {' in prompt
     assert '"requirements": [' in prompt
-    assert '"acceptance_criteria": []' in prompt
+    assert '"acceptance_criteria": [' in prompt
     assert '"business_rules": []' in prompt
     assert '"ambiguities": []' in prompt
     assert '"missing_information": []' in prompt
     assert '"assumptions": []' in prompt
 
-    # 6. Verify summary and requirements skeletons are valid and non-empty
+    # 6. Verify summary, requirements, and acceptance criteria skeletons are valid and non-empty
     assert '"text": "Descriptive summary of the requirements document."' in prompt
     assert '"id": "REQ-001"' in prompt
     assert '"category": "FUNCTIONAL"' in prompt
+    assert '"id": "AC-001"' in prompt
+    assert '"transformation": "NONE"' in prompt
+    assert '"derived_from_ids": ["REQ-001"]' in prompt
+    assert '"description": "Acceptance criterion description linked to REQ-001."' in prompt
+    assert '"rationale": "Proposed validation criterion derived from REQ-001."' in prompt
 
     # 7. Verify no IMPLEMENTATION_CONSTRAINT appears
     assert "IMPLEMENTATION_CONSTRAINT" not in prompt
@@ -262,7 +268,9 @@ def test_build_requirement_agent_prompt_non_extracted_shapes():
     assert "untrusted user requirement text" in prompt
 
     # 10. Verify no wording implies schema relaxation or accepting malformed optional entities
-    assert "If any optional item is nevertheless emitted, it must be fully valid and will be validated strictly." in prompt
+    assert "If any optional business_rules, ambiguities, missing_information, or assumptions are nevertheless emitted, they must be fully valid and will be validated strictly." in prompt
+    assert "Non-extracted entity instances, including PROPOSED acceptance_criteria, MUST NOT use SUMMARY" in prompt
+    assert "Non-extracted entities (e.g., ambiguities, missing_information, assumptions, business_rules, acceptance_criteria) MUST NOT use SUMMARY" not in prompt
 
     # 11. Verify forbidden bad JSON examples are removed or reduced
     assert "Flat string inside list instead of object:" not in prompt
@@ -270,3 +278,8 @@ def test_build_requirement_agent_prompt_non_extracted_shapes():
     assert "Omitted provenance object:" not in prompt
     assert "Arbitrary extra keys outside the schema:" not in prompt
     assert "Incorrect ID prefix format or list mismatch:" not in prompt
+
+    # 12. Verify no fixture/domain-specific phrases appear in prompt
+    assert "transaction storage" not in prompt.lower()
+    assert "database safety criteria" not in prompt.lower()
+    assert "database compliance" not in prompt.lower()

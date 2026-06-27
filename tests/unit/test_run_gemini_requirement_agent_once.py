@@ -680,9 +680,15 @@ def test_runner_second_synthetic_fixture():
     assert "confidential" not in prompt_text.lower()
     assert "private" not in prompt_text.lower()
 
-    # 6. Verify core-only output expectations remain unchanged in prompt
-    assert '"acceptance_criteria": []' in prompt_text
+    # 6. Verify output expectations for Gate J/K in prompt
+    assert '"acceptance_criteria": [' in prompt_text
+    assert '"id": "AC-001"' in prompt_text
     assert '"business_rules": []' in prompt_text
     assert '"ambiguities": []' in prompt_text
     assert '"missing_information": []' in prompt_text
     assert '"assumptions": []' in prompt_text
+
+    # 7. Verify no fixture/domain-specific phrases appear in prompt
+    assert "transaction storage" not in prompt_text.lower()
+    assert "database safety criteria" not in prompt_text.lower()
+    assert "database compliance" not in prompt_text.lower()
