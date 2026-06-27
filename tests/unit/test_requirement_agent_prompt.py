@@ -201,3 +201,51 @@ def test_build_requirement_agent_prompt_provenance_contract():
     assert '"origin": "PROPOSED"' in prompt
     assert '"transformation": "NONE"' in prompt
     assert '"derived_from_ids": ["REQ-001"]' in prompt
+
+
+def test_build_requirement_agent_prompt_non_extracted_shapes():
+    prompt = build_requirement_agent_prompt(TEST_ENVELOPE)
+
+    # 1. Verify entity list names & categories are referenced
+    assert "ambiguities" in prompt
+    assert "missing_information" in prompt
+    assert "assumptions" in prompt
+    assert "business_rules" in prompt
+    assert "acceptance_criteria" in prompt
+
+    # 2. Verify expected ID prefixes are listed
+    assert "AMB-001" in prompt
+    assert "MISS-001" in prompt
+    assert "ASM-001" in prompt
+    assert "BR-001" in prompt
+    assert "AC-001" in prompt
+
+    # 3. Verify general shape rules
+    assert "Every list item (e.g. in requirements, ambiguities, missing_information, etc.) MUST be a JSON object, not a string or primitive" in prompt
+    assert "Generated non-extracted entity objects must contain required keys: id, description, provenance" in prompt
+    assert "Requirement entities additionally require category" in prompt
+    assert "Requirement.category must be one of FUNCTIONAL, NON_FUNCTIONAL, CONSTRAINT, UNKNOWN." in prompt
+    assert "Use key 'description', never 'text', for all entity objects except summary.text." in prompt
+    assert "Every entity MUST include the nested 'provenance' object" in prompt
+    assert "Do not include arbitrary extra keys not listed for that entity schema" in prompt
+
+    # 4. Verify valid structure examples are in skeleton JSON
+    assert '"id": "AMB-001"' in prompt
+    assert "Identifying an ambiguity in the status refresh rate." in prompt
+    assert '"id": "MISS-001"' in prompt
+    assert "Details regarding health diagnostics API endpoint are missing." in prompt
+    assert '"id": "AC-001"' in prompt
+    assert "The status indicator changes color based on system health." in prompt
+
+    # 5. Verify forbidden warnings
+    assert "Flat string inside list instead of object:" in prompt
+    assert '"ambiguities": [ "The refresh rate is not defined." ]' in prompt
+    assert "Using 'text' instead of 'description' for entities:" in prompt
+    assert '{ "id": "AMB-001", "text": "The refresh rate is not defined." }' in prompt
+    assert "Omitted provenance object:" in prompt
+    assert '"summary": { "text": "..." } (no provenance key)' in prompt
+    assert "Arbitrary extra keys outside the schema:" in prompt
+    assert '{ "id": "AMB-001", "description": "...", "extra_field": "val"' in prompt
+    assert "Incorrect ID prefix format or list mismatch:" in prompt
+    assert '"ambiguities": [ { "id": "AMB001", ... } ]' in prompt
+    assert '"ambiguities": [ { "id": "REQ-002", ... } ]' in prompt
