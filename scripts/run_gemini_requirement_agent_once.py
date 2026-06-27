@@ -110,7 +110,13 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
     import app.requirement_agent_prompt as requirement_agent_prompt
     from app.domain_models import StageStatus
 
-    synthetic_input = "The system shall display a system status indicator."
+    # Built-in synthetic input fixtures:
+    # Fixture A (Gate I): "The system shall display a system status indicator."
+    # Fixture B (Gate J active default):
+    synthetic_input = (
+        "The system shall store transaction records in a secure database. "
+        "The system must allow authorized users to retrieve stored transaction records."
+    )
     try:
         sanitized_input = sanitize_requirement_text(synthetic_input)
     except Exception:

@@ -624,3 +624,65 @@ def test_diag_safe_summary_formatting():
     assert "pydantic_ctx" not in output
     assert "url" not in output
     assert "leak_pydantic_url" not in output
+
+
+def test_runner_second_synthetic_fixture():
+    # Verify that runner uses the second built-in synthetic fixture by default
+    fake_environ = {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_MODEL_NAME": "test-model"
+    }
+
+    captured_prompts = []
+
+    class MockAdapter:
+        def __init__(self, api_key):
+            self.api_key = api_key
+
+        def generate_content(self, model_name, prompt):
+            captured_prompts.append(prompt)
+            dummy_json = (
+                '{"summary": {"text": "dummy summary", "provenance": {"origin": "EXTRACTED", '
+                '"transformation": "SUMMARY", "source_segment_ids": ["SEG-001"], "derived_from_ids": [], '
+                '"rationale": null}}, "requirements": [{"id": "REQ-001", "description": "dummy req", '
+                '"category": "FUNCTIONAL", "provenance": {"origin": "EXTRACTED", "transformation": "VERBATIM", '
+                '"source_segment_ids": ["SEG-001"], "derived_from_ids": [], "rationale": null}}], '
+                '"acceptance_criteria": [], "business_rules": [], "ambiguities": [], "missing_information": [], '
+                '"assumptions": []}'
+            )
+            return StubResponse(text=dummy_json)
+
+    def fake_import():
+        pass
+
+    summary = runner.execute_request(fake_environ, fake_import, client_adapter_class=MockAdapter)
+
+    # 1. Verify runner execution succeeded with dummy response
+    assert summary["stage_status"] == "SUCCESS"
+    assert summary["committed_output_exists"] is True
+
+    # 2. Verify prompt was captured exactly once
+    assert len(captured_prompts) == 1
+    prompt_text = captured_prompts[0]
+
+    # 3. Verify the runner uses the second built-in synthetic fixture by default
+    expected_fixture = (
+        "The system shall store transaction records in a secure database. "
+        "The system must allow authorized users to retrieve stored transaction records."
+    )
+    assert expected_fixture in prompt_text
+
+    # 4. Verify the old first fixture is not the active default for the next gate
+    old_fixture = "The system shall display a system status indicator."
+    assert old_fixture not in prompt_text
+
+    # 5. Verify no production/customer/confidential text appears
+    assert "confidential" not in prompt_text.lower()
+    assert "private" not in prompt_text.lower()
+
+    # 6. Verify core-only output expectations remain unchanged in prompt
+    assert '"acceptance_criteria": []' in prompt_text
+    assert '"business_rules": []' in prompt_text
+    assert '"ambiguities": []' in prompt_text
+    assert '"missing_information": []' in prompt_text
+    assert '"assumptions": []' in prompt_text
