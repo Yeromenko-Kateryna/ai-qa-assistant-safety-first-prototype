@@ -231,21 +231,29 @@ def test_build_requirement_agent_prompt_non_extracted_shapes():
 
     # 4. Verify valid structure examples are in skeleton JSON
     assert '"id": "AMB-001"' in prompt
-    assert "Identifying an ambiguity in the status refresh rate." in prompt
+    assert "Definition of real-time update frequency is omitted." in prompt
     assert '"id": "MISS-001"' in prompt
-    assert "Details regarding health diagnostics API endpoint are missing." in prompt
+    assert "Detailed database API endpoint configuration details." in prompt
     assert '"id": "AC-001"' in prompt
-    assert "The status indicator changes color based on system health." in prompt
+    assert "Status updates complete within 2 seconds." in prompt
 
-    # 5. Verify forbidden warnings
-    assert "Flat string inside list instead of object:" in prompt
-    assert '"ambiguities": [ "The refresh rate is not defined." ]' in prompt
-    assert "Using 'text' instead of 'description' for entities:" in prompt
-    assert '{ "id": "AMB-001", "text": "The refresh rate is not defined." }' in prompt
-    assert "Omitted provenance object:" in prompt
-    assert '"summary": { "text": "..." } (no provenance key)' in prompt
-    assert "Arbitrary extra keys outside the schema:" in prompt
-    assert '{ "id": "AMB-001", "description": "...", "extra_field": "val"' in prompt
-    assert "Incorrect ID prefix format or list mismatch:" in prompt
-    assert '"ambiguities": [ { "id": "AMB001", ... } ]' in prompt
-    assert '"ambiguities": [ { "id": "REQ-002", ... } ]' in prompt
+    # 5. Verify no IMPLEMENTATION_CONSTRAINT appears
+    assert "IMPLEMENTATION_CONSTRAINT" not in prompt
+
+    # 6. Verify non-empty and useful ambiguity description requirement
+    assert "Ensure ambiguity.description is explicitly non-empty and useful." in prompt
+
+    # 7. Verify safety/injection/raw formats are unchanged
+    assert "Output raw JSON only" in prompt
+    assert "Do not wrap the JSON in Markdown code blocks" in prompt
+    assert "untrusted user requirement text" in prompt
+
+    # 8. Verify future compatibility for AC/BR
+    assert "When you propose or infer acceptance criteria/business rules" in prompt
+
+    # 9. Verify forbidden bad JSON examples are removed or reduced
+    assert "Flat string inside list instead of object:" not in prompt
+    assert "Using 'text' instead of 'description' for entities:" not in prompt
+    assert "Omitted provenance object:" not in prompt
+    assert "Arbitrary extra keys outside the schema:" not in prompt
+    assert "Incorrect ID prefix format or list mismatch:" not in prompt
