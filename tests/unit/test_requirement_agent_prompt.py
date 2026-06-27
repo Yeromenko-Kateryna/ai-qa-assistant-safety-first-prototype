@@ -197,10 +197,10 @@ def test_build_requirement_agent_prompt_provenance_contract():
     # 9. Valid requirement provenance example in skeleton JSON
     assert '"origin": "EXTRACTED"' in prompt
     assert '"transformation": "VERBATIM"' in prompt
-    # 10. Valid non-extracted provenance example
-    assert '"origin": "PROPOSED"' in prompt
-    assert '"transformation": "NONE"' in prompt
-    assert '"derived_from_ids": ["REQ-001"]' in prompt
+    # 10. Valid non-extracted provenance guidelines
+    assert 'PROPOSED' in prompt
+    assert 'NONE' in prompt
+    assert 'derived_from_ids' in prompt
 
 
 def test_build_requirement_agent_prompt_non_extracted_shapes():
@@ -213,45 +213,58 @@ def test_build_requirement_agent_prompt_non_extracted_shapes():
     assert "business_rules" in prompt
     assert "acceptance_criteria" in prompt
 
-    # 2. Verify expected ID prefixes are listed
+    # 2. Verify expected ID prefixes are listed in general instructions
     assert "AMB-001" in prompt
     assert "MISS-001" in prompt
     assert "ASM-001" in prompt
     assert "BR-001" in prompt
     assert "AC-001" in prompt
 
-    # 3. Verify general shape rules
+    # 3. Verify general shape rules are framed as fallback
     assert "Every list item (e.g. in requirements, ambiguities, missing_information, etc.) MUST be a JSON object, not a string or primitive" in prompt
-    assert "Generated non-extracted entity objects must contain required keys: id, description, provenance" in prompt
+    assert "If optional non-extracted entity objects are emitted despite this scope rule, they must contain required keys: id, description, provenance." in prompt
     assert "Requirement entities additionally require category" in prompt
     assert "Requirement.category must be one of FUNCTIONAL, NON_FUNCTIONAL, CONSTRAINT, UNKNOWN." in prompt
     assert "Use key 'description', never 'text', for all entity objects except summary.text." in prompt
     assert "Every entity MUST include the nested 'provenance' object" in prompt
     assert "Do not include arbitrary extra keys not listed for that entity schema" in prompt
 
-    # 4. Verify valid structure examples are in skeleton JSON
-    assert '"id": "AMB-001"' in prompt
-    assert "Definition of real-time update frequency is omitted." in prompt
-    assert '"id": "MISS-001"' in prompt
-    assert "Detailed database API endpoint configuration details." in prompt
-    assert '"id": "AC-001"' in prompt
-    assert "Status updates complete within 2 seconds." in prompt
+    # 4. Verify prompt explicitly instructs optional lists to be empty arrays [] and frames the table as fallback
+    assert "TEMPORARY OUTPUT SCOPE RULE: Generate empty arrays [] for: acceptance_criteria, business_rules, ambiguities, missing_information, assumptions." in prompt
+    assert "FALLBACK VALIDATION RULES FOR OPTIONAL ENTITY ITEMS:" in prompt
+    assert "GENERATED NON-EXTRACTED ENTITY SHAPE" not in prompt
+    assert "Fallback valid origin" in prompt
+    assert "Fallback valid transformation" in prompt
 
-    # 5. Verify no IMPLEMENTATION_CONSTRAINT appears
+    # 5. Verify valid skeleton includes all required top-level keys
+    assert '"summary": {' in prompt
+    assert '"requirements": [' in prompt
+    assert '"acceptance_criteria": []' in prompt
+    assert '"business_rules": []' in prompt
+    assert '"ambiguities": []' in prompt
+    assert '"missing_information": []' in prompt
+    assert '"assumptions": []' in prompt
+
+    # 6. Verify summary and requirements skeletons are valid and non-empty
+    assert '"text": "Descriptive summary of the requirements document."' in prompt
+    assert '"id": "REQ-001"' in prompt
+    assert '"category": "FUNCTIONAL"' in prompt
+
+    # 7. Verify no IMPLEMENTATION_CONSTRAINT appears
     assert "IMPLEMENTATION_CONSTRAINT" not in prompt
 
-    # 6. Verify non-empty and useful ambiguity description requirement
-    assert "Ensure ambiguity.description is explicitly non-empty and useful." in prompt
+    # 8. Verify non-empty/useful ambiguity description instruction exists as fallback
+    assert "If an optional ambiguity item is emitted despite this scope rule, its description must be non-empty and useful." in prompt
 
-    # 7. Verify safety/injection/raw formats are unchanged
+    # 9. Verify safety/injection/raw formats are unchanged
     assert "Output raw JSON only" in prompt
     assert "Do not wrap the JSON in Markdown code blocks" in prompt
     assert "untrusted user requirement text" in prompt
 
-    # 8. Verify future compatibility for AC/BR
-    assert "When you propose or infer acceptance criteria/business rules" in prompt
+    # 10. Verify no wording implies schema relaxation or accepting malformed optional entities
+    assert "If any optional item is nevertheless emitted, it must be fully valid and will be validated strictly." in prompt
 
-    # 9. Verify forbidden bad JSON examples are removed or reduced
+    # 11. Verify forbidden bad JSON examples are removed or reduced
     assert "Flat string inside list instead of object:" not in prompt
     assert "Using 'text' instead of 'description' for entities:" not in prompt
     assert "Omitted provenance object:" not in prompt
