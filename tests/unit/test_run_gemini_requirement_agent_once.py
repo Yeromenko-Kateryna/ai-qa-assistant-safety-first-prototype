@@ -576,6 +576,8 @@ def test_diag_safe_summary_formatting():
         "missing_top_level_keys": ["summary"],
         "invalid_field_paths": ["requirements[0].id"],
         "safe_expected_type_names": ["string"],
+        "schema_error_types": ["missing", "extra_forbidden"],
+        "schema_error_type_counts": {"missing": 1, "extra_forbidden": 2},
         "provenance_rule_failed": None,
         "semantic_rule_failed": None,
         "payload_values_printed": False,
@@ -583,6 +585,10 @@ def test_diag_safe_summary_formatting():
         "draft_text": "leak_draft_value",  # Prohibited key
         "raw_response": "leak_raw_response_value",  # Prohibited key
         "prompt": "leak_prompt_value",  # Prohibited key
+        "msg": "leak_pydantic_msg",  # Prohibited key
+        "input": "leak_pydantic_input",  # Prohibited key
+        "ctx": {"leak": "pydantic_ctx"},  # Prohibited key
+        "url": "leak_pydantic_url",  # Prohibited key
     }
 
     # Call production helper
@@ -597,6 +603,8 @@ def test_diag_safe_summary_formatting():
     assert "Missing top level keys: ['summary']" in output
     assert "Invalid field paths: ['requirements[0].id']" in output
     assert "Safe expected type names: ['string']" in output
+    assert "Schema error types: ['missing', 'extra_forbidden']" in output
+    assert "Schema error type counts: {'missing': 1, 'extra_forbidden': 2}" in output
     assert "Payload values printed: False" in output
 
     # Unknown/prohibited fields must not appear
@@ -608,3 +616,11 @@ def test_diag_safe_summary_formatting():
     assert "leak_raw_response_value" not in output
     assert "prompt" not in output
     assert "leak_prompt_value" not in output
+    assert "msg" not in output
+    assert "leak_pydantic_msg" not in output
+    assert "input" not in output
+    assert "leak_pydantic_input" not in output
+    assert "ctx" not in output
+    assert "pydantic_ctx" not in output
+    assert "url" not in output
+    assert "leak_pydantic_url" not in output

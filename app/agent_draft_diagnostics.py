@@ -23,6 +23,8 @@ class AgentDraftDiagnosticSummary:
         self.missing_top_level_keys: list[str] = []
         self.invalid_field_paths: list[str] = []
         self.safe_expected_type_names: list[str] = []
+        self.schema_error_types: list[str] = []
+        self.schema_error_type_counts: dict[str, int] = {}
         self.provenance_rule_failed: str | None = None
         self.semantic_rule_failed: str | None = None
         self.payload_values_printed: bool = False
@@ -104,6 +106,8 @@ def diagnose_agent_draft(draft_text: str) -> AgentDraftDiagnosticSummary:
         summary.safe_error_code = "AGENT_DRAFT_VALIDATION_FAILED"
 
         is_provenance = False
+        categories = []
+        counts = {}
         for err in e.errors():
             loc = err.get("loc", ())
             path_str = format_loc(loc)
@@ -123,6 +127,28 @@ def diagnose_agent_draft(draft_text: str) -> AgentDraftDiagnosticSummary:
             elif "dict" in err_type:
                 summary.safe_expected_type_names.append("object")
 
+            # Map Pydantic err.get("type") to safe categories
+            # Safe categories: missing, extra_forbidden, model_type, list_type, string_type, enum, value_error, unknown_schema_error
+            if err_type == "missing":
+                category = "missing"
+            elif err_type == "extra_forbidden":
+                category = "extra_forbidden"
+            elif err_type == "model_type":
+                category = "model_type"
+            elif err_type == "list_type":
+                category = "list_type"
+            elif err_type == "string_type":
+                category = "string_type"
+            elif err_type in ("enum", "literal_error"):
+                category = "enum"
+            elif err_type == "value_error":
+                category = "value_error"
+            else:
+                category = "unknown_schema_error"
+
+            categories.append(category)
+            counts[category] = counts.get(category, 0) + 1
+
             if "provenance" in loc:
                 is_provenance = True
                 if "origin" in loc:
@@ -131,6 +157,9 @@ def diagnose_agent_draft(draft_text: str) -> AgentDraftDiagnosticSummary:
                     summary.provenance_rule_failed = "PROVENANCE_TRANSFORMATION_INVALID"
                 else:
                     summary.provenance_rule_failed = "PROVENANCE_INVARIANT_VIOLATED"
+
+        summary.schema_error_types = sorted(list(set(categories)))
+        summary.schema_error_type_counts = {cat: counts[cat] for cat in sorted(counts.keys())}
 
         if is_provenance:
             summary.failure_phase = "PROVENANCE"

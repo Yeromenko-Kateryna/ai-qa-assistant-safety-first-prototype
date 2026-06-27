@@ -9,6 +9,8 @@ DIAGNOSTIC_PRINT_KEYS = (
     "missing_top_level_keys",
     "invalid_field_paths",
     "safe_expected_type_names",
+    "schema_error_types",
+    "schema_error_type_counts",
     "provenance_rule_failed",
     "semantic_rule_failed",
     "payload_values_printed",
@@ -181,6 +183,8 @@ def execute_request(environ, import_genai, client_adapter_class=None) -> dict:
                 summary["missing_top_level_keys"] = diag.missing_top_level_keys
                 summary["invalid_field_paths"] = diag.invalid_field_paths
                 summary["safe_expected_type_names"] = diag.safe_expected_type_names
+                summary["schema_error_types"] = diag.schema_error_types
+                summary["schema_error_type_counts"] = diag.schema_error_type_counts
                 summary["provenance_rule_failed"] = diag.provenance_rule_failed
                 summary["semantic_rule_failed"] = diag.semantic_rule_failed
                 summary["payload_values_printed"] = diag.payload_values_printed

@@ -281,3 +281,183 @@ def test_unsafe_json_key_precedence_regression():
     assert "api_key" not in serialized
     assert "SyntheticSecretValue123456" not in serialized
     assert "secret" not in serialized
+
+
+def test_pydantic_error_categories():
+    import json
+
+    # Helper to construct a base draft dict
+    def get_base_dict():
+        return {
+            "summary": {
+                "text": "Valid summary text",
+                "provenance": {
+                    "origin": "EXTRACTED",
+                    "transformation": "SUMMARY",
+                    "source_segment_ids": ["SEG-001"],
+                    "derived_from_ids": [],
+                    "rationale": None
+                }
+            },
+            "requirements": [
+                {
+                    "id": "REQ-001",
+                    "description": "System health status indicator.",
+                    "category": "FUNCTIONAL",
+                    "provenance": {
+                        "origin": "EXTRACTED",
+                        "transformation": "VERBATIM",
+                        "source_segment_ids": ["SEG-001"],
+                        "derived_from_ids": [],
+                        "rationale": None
+                    }
+                }
+            ],
+            "acceptance_criteria": [],
+            "business_rules": [],
+            "ambiguities": [],
+            "missing_information": [],
+            "assumptions": []
+        }
+
+    # 1. ambiguity item as string
+    d = get_base_dict()
+    d["ambiguities"] = ["Ambiguity string"]
+    sum1 = diagnose_agent_draft(json.dumps(d))
+    assert sum1.failure_phase == "SCHEMA"
+    assert "model_type" in sum1.schema_error_types
+    assert sum1.schema_error_type_counts["model_type"] == 1
+    assert "ambiguities[0]" in sum1.invalid_field_paths
+
+    # 2. missing required id
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "description": "Refresh rate not defined.",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Identifying refresh rate ambiguity."
+        }
+    }]
+    sum2 = diagnose_agent_draft(json.dumps(d))
+    assert sum2.failure_phase == "SCHEMA"
+    assert "missing" in sum2.schema_error_types
+    assert sum2.schema_error_type_counts["missing"] == 1
+    assert "ambiguities[0].id" in sum2.invalid_field_paths
+
+    # 3. text instead of description
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "text": "Refresh rate not defined.",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Identifying refresh rate ambiguity."
+        }
+    }]
+    sum3 = diagnose_agent_draft(json.dumps(d))
+    assert sum3.failure_phase == "SCHEMA"
+    assert "missing" in sum3.schema_error_types  # missing description
+    assert "extra_forbidden" in sum3.schema_error_types  # extra key 'text'
+    assert sum3.schema_error_type_counts["missing"] == 1
+    assert sum3.schema_error_type_counts["extra_forbidden"] == 1
+    assert "ambiguities[0].description" in sum3.invalid_field_paths
+    assert "ambiguities[0].text" in sum3.invalid_field_paths
+
+    # 4. extra arbitrary key
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "Refresh rate not defined.",
+        "extra_arbitrary_key": "some_value",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Identifying refresh rate ambiguity."
+        }
+    }]
+    sum4 = diagnose_agent_draft(json.dumps(d))
+    assert sum4.failure_phase == "SCHEMA"
+    assert "extra_forbidden" in sum4.schema_error_types
+    assert sum4.schema_error_type_counts["extra_forbidden"] == 1
+    assert "ambiguities[0].extra_arbitrary_key" in sum4.invalid_field_paths
+
+    # 5. id as integer
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": 123,
+        "description": "Refresh rate not defined.",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "Identifying refresh rate ambiguity."
+        }
+    }]
+    sum5 = diagnose_agent_draft(json.dumps(d))
+    assert sum5.failure_phase == "SCHEMA"
+    assert "string_type" in sum5.schema_error_types
+    assert sum5.schema_error_type_counts["string_type"] == 1
+    assert "ambiguities[0].id" in sum5.invalid_field_paths
+
+    # 6. ambiguities object instead of list
+    d = get_base_dict()
+    d["ambiguities"] = {"not": "a list"}
+    sum6 = diagnose_agent_draft(json.dumps(d))
+    assert sum6.failure_phase == "SCHEMA"
+    assert "list_type" in sum6.schema_error_types
+    assert sum6.schema_error_type_counts["list_type"] == 1
+    assert "ambiguities" in sum6.invalid_field_paths
+
+    # 7. invalid requirement category
+    d = get_base_dict()
+    d["requirements"][0]["category"] = "INVALID_CATEGORY_VALUE"
+    sum7 = diagnose_agent_draft(json.dumps(d))
+    assert sum7.failure_phase == "SCHEMA"
+    assert "enum" in sum7.schema_error_types
+    assert sum7.schema_error_type_counts["enum"] == 1
+    assert "requirements[0].category" in sum7.invalid_field_paths
+
+    # 8. unsafe api_key-like draft -> UNSAFE precedence
+    # Verify no schema_error_types, schema_error_type_counts, invalid_field_paths
+    fake_unsafe = '{"api_key": "SyntheticSecretValue123456", "requirements": "invalid_type"}'
+    sum8 = diagnose_agent_draft(fake_unsafe)
+    assert sum8.failure_phase == "UNSAFE"
+    assert not sum8.schema_error_types
+    assert not sum8.schema_error_type_counts
+    assert not sum8.invalid_field_paths
+    assert not sum8.safe_expected_type_names
+
+    # 9. no leaks of raw msg/input/ctx/url, payload values, etc.
+    d = get_base_dict()
+    d["ambiguities"] = [{
+        "id": "AMB-001",
+        "description": "UniqueAmbiguityDescriptionLeakCheckValue",
+        "extra_forbidden_key_leak_check": "ExtraForbiddenKeyLeakCheckValue",
+        "provenance": {
+            "origin": "PROPOSED",
+            "transformation": "NONE",
+            "source_segment_ids": [],
+            "derived_from_ids": ["REQ-001"],
+            "rationale": "UniqueAmbiguityRationaleLeakCheckValue"
+        }
+    }]
+    sum9 = diagnose_agent_draft(json.dumps(d))
+    serialized = str(sum9.__dict__)
+    assert "UniqueAmbiguityDescriptionLeakCheckValue" not in serialized
+    assert "ExtraForbiddenKeyLeakCheckValue" not in serialized
+    assert "UniqueAmbiguityRationaleLeakCheckValue" not in serialized
+    assert "msg" not in serialized
+    assert "input" not in serialized
+    assert "ctx" not in serialized
+    assert "url" not in serialized
+    assert "repr" not in serialized
+    assert "e.errors" not in serialized
