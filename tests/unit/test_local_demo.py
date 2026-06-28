@@ -72,3 +72,53 @@ def test_local_demo_import_isolation():
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0, f"Import isolation check failed: {res.stderr}"
+
+
+def test_local_demo_main_mock_explicit(capsys):
+    from app.local_demo import main
+    # Call main with explicit --mock arg, avoiding global argv monkeypatching
+    main(["--mock"])
+    captured = capsys.readouterr()
+    assert "[DEMO / MOCK OUTPUT]" in captured.out
+    assert "Stage Status: SUCCESS" in captured.out
+    assert "REQ-001" not in captured.out
+
+
+def test_local_demo_main_non_mock_explicit(capsys):
+    from app.local_demo import main
+    # Call main with empty args list, avoiding global argv monkeypatching
+    main([])
+    captured = capsys.readouterr()
+    assert "Real-mode analysis is unsupported in local_demo" in captured.out
+    assert "[DEMO / MOCK OUTPUT]" not in captured.out
+    assert "Stage Status: SUCCESS" not in captured.out
+
+
+def test_local_demo_subprocess_mock_mode():
+    import subprocess
+    import sys
+    res = subprocess.run([sys.executable, "-m", "app.local_demo", "--mock"], capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "[DEMO / MOCK OUTPUT]" in res.stdout
+    assert "Stage Status: SUCCESS" in res.stdout
+
+    # Strengthen no-leak assertions
+    assert "REQ-001" not in res.stdout
+    assert "AC-001" not in res.stdout
+    assert "source_segment_ids" not in res.stdout
+    assert "derived_from_ids" not in res.stdout
+    assert "provenance" not in res.stdout
+    assert "rationale" not in res.stdout
+    assert "{" not in res.stdout
+    assert "}" not in res.stdout
+
+
+def test_local_demo_subprocess_non_mock_mode():
+    import subprocess
+    import sys
+    res = subprocess.run([sys.executable, "-m", "app.local_demo"], capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "Real-mode analysis is unsupported in local_demo" in res.stdout
+    # Ensure no mock output leak occurs in non-mock execution
+    assert "[DEMO / MOCK OUTPUT]" not in res.stdout
+    assert "Stage Status: SUCCESS" not in res.stdout
