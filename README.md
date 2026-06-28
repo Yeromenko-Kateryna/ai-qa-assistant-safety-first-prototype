@@ -1,86 +1,32 @@
-# ai-qa-assistant
+# AI QA Assistant
 
+> [!IMPORTANT]
+> **Project Status**: R&D mock MVP demo candidate.
+> This project is currently **not production-ready**, does **not** support live Gemini CLI integration, and does **not** connect to `app/agent.py`.
 
-Agent generated with `agents-cli` version `0.5.0`
+This repository contains the AI QA Assistant prototype, focusing on a safe and isolated requirements extraction corridor.
 
-## Project Structure
+## Safe Demo Path
 
-```
-ai-qa-assistant/
-├── app/         # Core agent code
-│   ├── agent.py               # Main agent logic
-│   └── app_utils/             # App utilities and helpers
-├── tests/                     # Unit, integration, and load tests
-├── GEMINI.md                  # AI-assisted development guide
-└── pyproject.toml             # Project dependencies
-```
+The current release candidate provides an explicit mock/demo command-line execution path. It uses pre-configured, synthetic, schema-valid requirements data formatted through the safe renderer to demonstrate the target user experience.
 
-> 💡 **Tip:** Use [Gemini CLI](https://github.com/google-gemini/gemini-cli) for AI-assisted development - project context is pre-configured in `GEMINI.md`.
+### Running the Mock Demo
 
-## Requirements
-
-Before you begin, ensure you have:
-- **uv**: Python package manager (used for all dependency management in this project) - [Install](https://docs.astral.sh/uv/getting-started/installation/) ([add packages](https://docs.astral.sh/uv/concepts/dependencies/) with `uv add <package>`)
-- **agents-cli**: Agents CLI - Install with `uv tool install google-agents-cli`
-- **Google Cloud SDK**: For GCP services - [Install](https://cloud.google.com/sdk/docs/install)
-
-
-## Quick Start
-
-Install `agents-cli` and its skills if not already installed:
+Execute the mock demo using the explicit `--mock` flag:
 
 ```bash
-uvx google-agents-cli setup
+uv run python -m app.local_demo --mock
 ```
 
-Install required packages:
+- **Explicit Mode Selector**: The `--mock` flag must be explicitly passed.
+- **No API Keys**: No Gemini API keys or environment setup are required for mock mode.
+- **No Live Calls**: The mock demo does not contact the live Gemini API.
+- **No Custom Inputs**: Raw input text or external file payloads are not processed by the mock integration path.
 
-```bash
-agents-cli install
-```
+## Documentation Index
 
-Test the agent with a local web server:
+For detailed guidelines, safety rules, and project milestones, please refer to the following documents:
 
-```bash
-agents-cli playground
-```
-
-You can also use features from the [ADK](https://adk.dev/) CLI with `uv run adk`.
-
-## Commands
-
-| Command              | Description                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| `agents-cli install` | Install dependencies using uv                                                         |
-| `agents-cli playground` | Launch local development environment                                                  |
-| `agents-cli lint`    | Run code quality checks                                                               |
-| `agents-cli eval`    | Evaluate agent behavior (generate, grade, analyze, and more — see `agents-cli eval --help`) |
-| `uv run pytest tests/unit tests/integration` | Run unit and integration tests                                                        |
-
-## 🛠️ Project Management
-
-| Command | What It Does |
-|---------|--------------|
-| `agents-cli scaffold enhance` | Add CI/CD pipelines and Terraform infrastructure |
-| `agents-cli infra cicd` | One-command setup of entire CI/CD pipeline + infrastructure |
-| `agents-cli scaffold upgrade` | Auto-upgrade to latest version while preserving customizations |
-
----
-
-## Development
-
-Edit your agent logic in `app/agent.py` and test with `agents-cli playground` - it auto-reloads on save.
-
-## Deployment
-
-```bash
-gcloud config set project <your-project-id>
-agents-cli deploy
-```
-
-To add CI/CD and Terraform, run `agents-cli scaffold enhance`.
-To set up your production infrastructure, run `agents-cli infra cicd`.
-
-## Observability
-
-Built-in telemetry exports to Cloud Trace, BigQuery, and Cloud Logging.
+1. **[docs/demo.md](docs/demo.md)**: Details on mock demo outputs, visible fields, and hidden properties.
+2. **[docs/safety_boundaries.md](docs/safety_boundaries.md)**: Architectural invariants, data-leak constraints, and blocked scopes.
+3. **[docs/release_status.md](docs/release_status.md)**: Status roadmap, unproven areas, and safe gate validation history.
