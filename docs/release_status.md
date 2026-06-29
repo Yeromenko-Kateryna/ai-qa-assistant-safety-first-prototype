@@ -32,16 +32,18 @@ Controlled one-shot gates have demonstrated evidence for the prompt corridor on 
 - **Unproven Production Data Stability**: The pipeline has not been tested against production, customer, or confidential datasets.
 - **Unproven Runtime Environments**: Authentication policies, network resilience, and rate limits have not been verified under live CLI execution.
 
-## License / Reuse Status
+## License / Reuse and Kaggle Competition Terms
 
-No open-source license is currently selected for this repository.
+No open-source license is currently selected for this repository. All rights are reserved by the project owner.
 
-All rights are reserved by the project owner.
+This repository may be shared publicly for review and demonstration purposes only. Public availability of this repository does not mean the project is open source.
 
-This repository is shared publicly for review and demonstration purposes only, including Kaggle/Google AI Agents Intensive Capstone review.
+Under the current repository reuse status, no permission is granted to copy, modify, redistribute, sublicense, sell, or use this repository code commercially without explicit written permission from the project owner.
 
-No permission is granted to copy, modify, redistribute, sublicense, sell, or use this code commercially without explicit written permission from the project owner.
+This repository reuse notice does not override any rights, licenses, publication terms, reproduction requirements, or winner obligations that may apply to Kaggle-hosted writeups, Kaggle submission materials, winning Submissions, or source code used to generate a winning Submission under the applicable competition rules.
 
-Public availability of this repository does not mean the project is open source.
+If the project is selected as a winner or otherwise becomes subject to additional competition licensing requirements, the project owner will need to review and satisfy those requirements separately before making any further licensing, distribution, or reuse claims.
+
+This statement is informational and is not legal advice.
 
 *Note: This license status does not modify the mock-only, R&D status of this repository.*
