@@ -31,3 +31,17 @@ Controlled one-shot gates have demonstrated evidence for the prompt corridor on 
 - **Unproven Semantic Quality**: The semantic accuracy, logic, and business validity of model-generated requirements and criteria are not proven.
 - **Unproven Production Data Stability**: The pipeline has not been tested against production, customer, or confidential datasets.
 - **Unproven Runtime Environments**: Authentication policies, network resilience, and rate limits have not been verified under live CLI execution.
+
+## License / Reuse Status
+
+No open-source license is currently selected for this repository.
+
+All rights are reserved by the project owner.
+
+This repository is shared publicly for review and demonstration purposes only, including Kaggle/Google AI Agents Intensive Capstone review.
+
+No permission is granted to copy, modify, redistribute, sublicense, sell, or use this code commercially without explicit written permission from the project owner.
+
+Public availability of this repository does not mean the project is open source.
+
+*Note: This license status does not modify the mock-only, R&D status of this repository.*

@@ -30,3 +30,15 @@ For detailed guidelines, safety rules, and project milestones, please refer to t
 1. **[docs/demo.md](docs/demo.md)**: Details on mock demo outputs, visible fields, and hidden properties.
 2. **[docs/safety_boundaries.md](docs/safety_boundaries.md)**: Architectural invariants, data-leak constraints, and blocked scopes.
 3. **[docs/release_status.md](docs/release_status.md)**: Status roadmap, unproven areas, and safe gate validation history.
+
+## License / Reuse Status
+
+No open-source license is currently selected for this repository.
+
+All rights are reserved by the project owner.
+
+This repository is shared publicly for review and demonstration purposes only, including Kaggle/Google AI Agents Intensive Capstone review.
+
+No permission is granted to copy, modify, redistribute, sublicense, sell, or use this code commercially without explicit written permission from the project owner.
+
+Public availability of this repository does not mean the project is open source.
