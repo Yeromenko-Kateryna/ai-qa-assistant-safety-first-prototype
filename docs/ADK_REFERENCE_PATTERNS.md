@@ -4,7 +4,7 @@ Status: Phase 1 reference study completed. No sample code has been copied.
 
 ## Purpose
 
-This study records the small set of official Google ADK patterns that will inform the AI QA Assistant scaffold and implementation. It does not change the approved MVP scope, data contracts, or trust boundaries.
+This study records official Google ADK patterns that may inform future live orchestration. It does not change the approved target scope, data contracts, or trust boundaries.
 
 ## Sources Reviewed
 
@@ -70,4 +70,4 @@ The official samples inform the orchestration and guardrail boundaries, but thei
 
 ## Exit Decision
 
-The reference-study exit criterion is satisfied: the reusable patterns and explicit exclusions are documented. The next phase is to load the scaffolding instructions, inspect the current project with `agents-cli info`, and select a scaffolding command before creating any code.
+The reference-study exit criterion is satisfied: reusable patterns and explicit exclusions are documented. Any future live-orchestration work requires a separately approved, project-specific implementation and evaluation plan.

@@ -36,7 +36,7 @@ uv run python -m app.local_demo --mock
 - This command is for controlled mock demo use only.
 - The `--mock` flag is a boolean mode selector only. It must not be used as a payload input channel.
 - Parameters such as `--input`, `--mock-json`, file payloads, env variable injections, or custom requirement texts are strictly unsupported.
-- Live Gemini API calls, one-shot runner script executions, and core agent (`app/agent.py`) commands are prohibited.
+- Live Gemini API calls and the experimental one-shot runner are outside the supported mock-demo path.
 
 ---
 
@@ -46,18 +46,16 @@ uv run python -m app.local_demo --mock
 - "This demonstrates the mock UX shell for the requirements analysis stage."
 - "This shows the safe renderer output format, presenting the Summary, Requirements, and Acceptance Criteria sections."
 - "All internal IDs, provenance mappings, source segment lists, derived relations, rationales, raw JSON, and diagnostics are hidden by the renderer."
-- "Controlled gates provided evidence for the extraction corridor on synthetic inputs."
-- "The project is currently classified as an R&D mock MVP demo candidate."
-
-> [!WARNING]
-> **Wording Guardrail**: The statement `"controlled gates provided evidence for the extraction corridor on synthetic inputs"` is evidence-bounded. Do not upgrade it to "validated", "proven", "production-ready", or "semantically verified".
+- "This is an R&D prototype with a controlled mock demo."
+- "The repository contains deterministic source code and unit tests for the implemented core; no reproducible historical live-gate artifacts are included."
 
 ### What the Presenter MUST NOT Say:
 - Do not say this is live Gemini output or real-time generation.
 - Do not say this processes arbitrary user input.
 - Do not say the tool is production-ready or customer-data ready.
+- Do not present historical gate outcomes as independently verified evidence.
 - Do not say the semantic quality of generated requirements or criteria is proven.
-- Do not say the core agent (`app/agent.py`) is integrated or active.
+- Do not say that live multi-agent orchestration is integrated or active.
 - Do not say real-mode `local_demo` execution is implemented.
 - Do not say support for optional arrays (business rules, assumptions, ambiguities) is complete.
 - Do not say API keys or model authentication check policies were verified during execution.
@@ -90,19 +88,20 @@ State the following post-demo status summary:
 - The output was labeled as mock/demo.
 - The demo did not call the Gemini API or process arbitrary user requirements.
 - Real-mode integration remains blocked.
-- Core agent (`app/agent.py`) integration remains blocked.
+- Live multi-agent orchestration remains deferred.
 - Production and customer data testing remain blocked.
 
 ---
 
-## 6. Blocked Next Steps
+## 6. Unsupported / Unproven for the Portfolio Demo
 
-The following capabilities are blocked from implementation, documentation, and execution:
-- Live Gemini API execution.
-- One-shot runner executions.
+The following are not part of the supported portfolio demo or current release evidence:
+- Live Gemini execution during the demo.
+- Execution of the experimental one-shot runner.
 - Real-mode `local_demo` integration.
-- Core agent (`app/agent.py`) integration.
+- Live multi-agent orchestration.
 - Production, customer, or confidential data testing.
+- Completed semantic LLM evaluation.
 - Raw response and intermediate draft logs inspection.
 - Committed output file on-disk validation.
 - Relaxation of parser/validator schemas.

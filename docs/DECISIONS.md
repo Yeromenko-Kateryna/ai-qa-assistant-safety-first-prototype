@@ -1,5 +1,7 @@
 # Product and Architecture Decisions
 
+> **Status:** This document records approved target product and architecture decisions. It does not describe the current implemented release state; see [release_status.md](release_status.md).
+
 ## Approved Decisions
 
 ### 001 — Problem

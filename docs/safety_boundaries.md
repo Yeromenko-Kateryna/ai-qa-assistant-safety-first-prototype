@@ -13,13 +13,13 @@ This document details the architectural safety design and data leak-prevention r
 
 ## Architectural Boundaries
 
-- **Input Safety Gate**: Sanitizes all input strings before they can reach internal buffers or providers.
+- **Input Safety Gate**: Processes raw input at the pre-provider boundary. Only sanitized input may enter provider calls, application state, logs, or traces in the target workflow.
 - **Output Safety Gate**: Screens final rendered markdown to ensure no secrets, passwords, or raw object strings are present.
 - **Import Isolation**: Modules like `app/local_demo.py` and `app/renderer.py` do not load Gemini SDK modules, cloud trace adapters, or live provider classes at module import time, preserving offline environment safety.
 
 ## Blocked Scopes and Deferred Features
 
 - **Gemini Live CLI**: Real-mode Gemini invocation remains disabled.
-- **Core Agent Integration**: The `app/agent.py` core agent is not integrated.
+- **Live Orchestration**: Multi-agent orchestration is a target capability and is not integrated into the supported local execution path.
 - **Optional Arrays**: Support for Business Rules, Ambiguities, Missing Information, and Assumptions is deferred; the current mock demo and safe rendering path do not surface these arrays.
 - **Payload Telemetry**: Prompt text, draft responses, raw model payloads, and raw exception logs are completely excluded from user-facing buffers.

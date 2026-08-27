@@ -1,18 +1,12 @@
 [project]
 name = "ai-qa-assistant"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Your Name", email = "your@email.com"},
-]
+description = "Safety-first deterministic components for an AI-assisted QA requirements-analysis prototype."
 
 
 
 dependencies = [
-    "google-adk[gcp]>=2.0.0,<3.0.0",
-    "opentelemetry-instrumentation-google-genai>=0.1.0,<1.0.0",
-    "gcsfs>=2024.11.0",
-    "google-cloud-logging>=3.12.0,<4.0.0",
+    "google-genai>=1.0.0,<2.0.0",
     "pydantic>=2.12,<3.0.0",
 ]
 requires-python = ">=3.11,<3.14"
@@ -25,11 +19,6 @@ dev = [
     "nest-asyncio>=1.6.0,<2.0.0",
 ]
 
-[project.optional-dependencies]
-eval = [
-    "google-adk[eval]>=2.0.0,<3.0.0",
-    "google-cloud-aiplatform[evaluation]>=1.156.0",
-]
 lint = [
     "ruff>=0.4.6,<1.0.0",
     "ty>=0.0.1a0",
@@ -54,14 +43,14 @@ select = [
 ignore = ["E501", "C901", "B006"] # ignore line too long, too complex
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "frontend"]
+known-first-party = ["app"]
 
 [tool.ty]
 # ty is Astral's Rust-based type checker (same team as ruff/uv)
 # See: https://docs.astral.sh/ty/
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.ty.src]
 exclude = [".venv/**"]
@@ -79,7 +68,7 @@ deprecated = "ignore"
 
 [tool.codespell]
 ignore-words-list = "rouge"
-skip = "./locust_env/*,uv.lock,.venv,./frontend,**/package-lock.json"
+skip = "uv.lock,.venv,**/package-lock.json"
 
 
 
@@ -94,4 +83,4 @@ pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app","frontend"]
+packages = ["app"]

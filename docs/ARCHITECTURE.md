@@ -1,6 +1,20 @@
-# Architecture v1.0
+# Target Architecture v1.0
 
-## Trust-Aware Flow
+> **Status: designed target architecture.** The complete live multi-agent workflow below is not implemented end to end. The currently runnable path is the offline synthetic mock demo described in [demo.md](demo.md); deterministic domain, validation, input-safety, provider-boundary, output-safety, and rendering components are implemented independently.
+
+## Current Implemented Corridor
+
+```text
+Committed synthetic requirement data
+  -> deterministic validation
+  -> safe Markdown renderer
+  -> output-safety check
+  -> labelled mock CLI output
+```
+
+The input-safety and candidate-draft validation modules are unit-tested deterministic components. They are not connected to a supported live provider workflow.
+
+## Target Trust-Aware Flow
 
 ```text
 Raw HTTP Input

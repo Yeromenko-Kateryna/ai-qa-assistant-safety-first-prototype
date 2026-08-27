@@ -7,7 +7,8 @@ This document outlines the current project status, demonstrated capabilities, va
 - **Status**: R&D mock MVP demo candidate.
 - **Production Readiness**: Not production-ready.
 - **Gemini Integration**: Live Gemini execution in the CLI is disabled.
-- **Multi-Agent Orchestration**: Integration with `app/agent.py` remains blocked.
+- **Experimental Boundary**: One-shot Gemini execution code exists for the Requirement Agent boundary, but it is outside the supported CLI/demo path and no committed live-run evidence is included.
+- **Multi-Agent Orchestration**: Live orchestration remains deferred; the generated scaffold was removed because it was not project behavior.
 
 ## Demonstrable Capabilities
 
@@ -16,15 +17,9 @@ The current release allows users to execute a mock demonstration of the target U
 - Enforcing safe rendering boundaries (redacting IDs, provenance, and rationales).
 - Testing CLI entrypoint import isolation.
 
-## Controlled Gate History Summary
+## Evidence Status
 
-Controlled one-shot gates have demonstrated evidence for the prompt corridor on synthetic inputs. Results are summarized below:
-
-- **Gate I & Gate J**: Controlled core-only SUCCESS on two distinct synthetic inputs, demonstrating that the pipeline could pass parser/validator checks with requirements and empty optional arrays.
-- **Gate K**: SUCCESS / execution pass after acceptance_criteria prompt expansion; acceptance_criteria generation was not confirmed because safe aggregate count was not yet available.
-- **Gate L**: SUCCESS with acceptance_criteria count > 0 by safe aggregate count.
-- **Slice 54**: Safe renderer boundary committed (`render_safe_requirement_analysis_markdown`).
-- **Slice 56**: Mock-only `local_demo` display path committed (`app/local_demo.py --mock`).
+The repository contains deterministic source code and unit tests for the implemented core and mock demo. Historical references to controlled one-shot gates were removed because reproducible, committed run artifacts are not available here. Completed semantic LLM evaluation and live execution results are not included.
 
 ## Blocked and Unproven Areas
 

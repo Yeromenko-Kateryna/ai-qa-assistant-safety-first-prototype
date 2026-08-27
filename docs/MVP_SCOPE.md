@@ -1,10 +1,12 @@
-# MVP Scope v1.0
+# Target MVP Scope v1.0
+
+> **Status: designed scope, not current release status.** This document defines the intended narrow MVP and its Definition of Done. The current release is a deterministic-core and mock-demo prototype; see [release_status.md](release_status.md).
 
 ## Product Goal
 
 Transform unstructured English product requirements into a structured QA draft that helps a QA engineer begin analysis systematically without replacing human judgment.
 
-## User Flow
+## Target User Flow
 
 1. A QA engineer submits pasted requirement text.
 2. A deterministic pre-ADK gate validates language, size, secrets, URLs, and suspicious instruction patterns.
